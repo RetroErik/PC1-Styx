@@ -54,15 +54,20 @@ Command-line options (inherited from Styx Remastered):
 | File | Purpose |
 |------|---------|
 | `STYX.ASM` | Combined NASM source (this gets compiled) |
-| `STYX1.ASM` | I/O and graphics routines (A86 reference) |
-| `STYX2.ASM` | Game logic (A86 reference) |
-| `STYX3.ASM` | Additional game code (A86 reference) |
-| `DATA.ASM` | Static data and variables (A86 reference) |
-| `CODE.ASM` | Shared routines (A86 reference) |
-| `PARSE.ASM` | Command-line parsing (A86 reference) |
-| `PARSECMD.C` | Original C parser (compiled to PARSE.ASM) |
 | `make_exe.py` | Converts flat binary to DOS EXE |
-| `convert_a86_to_nasm.py` | A86-to-NASM syntax converter |
+
+The original A86 source files and conversion script have been moved to `Old A86 Source Code/`:
+
+| File | Purpose |
+|------|---------|
+| `STYX1.ASM` | I/O and graphics routines (A86 original) |
+| `STYX2.ASM` | Game logic (A86 original) |
+| `STYX3.ASM` | Additional game code (A86 original) |
+| `DATA.ASM` | Static data and variables (A86 original) |
+| `CODE.ASM` | Shared routines (A86 original) |
+| `PARSE.ASM` | Command-line parsing (A86 original) |
+| `PARSECMD.C` | Original C parser (compiled to PARSE.ASM) |
+| `convert_a86_to_nasm.py` | A86-to-NASM syntax converter (merges the above into STYX.ASM) |
 
 ## Credits
 
