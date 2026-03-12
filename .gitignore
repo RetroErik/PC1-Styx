@@ -1,0 +1,9 @@
+# Build artifacts
+*.BIN
+*.EXE
+*.exe
+*.OBJ
+*.obj
+*.COM
+*.com
+*.lst

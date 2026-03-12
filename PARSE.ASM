@@ -1,0 +1,163 @@
+; Styx Remastered
+; Copyright (c) Andrew Jenner 1998-2004
+
+PUBLIC _parsecmd
+
+_TEXT SEGMENT WORD PUBLIC 'CODE'
+
+_parsecmd:
+  PUSH BP
+  MOV BP,SP
+  SUB SP,086
+  PUSH SI
+  PUSH DI
+  LES BX,W[BP+4]
+  MOV W[BP-2],ES
+  MOV W[BP-4],BX
+o2363:
+  JMP o2368
+o2365:
+  INC W[BP-4]
+o2368:
+  LES BX,W[BP-4]
+  ES: CMP B[BX],020
+  JZ o2365
+  XOR SI,SI
+  JMP o2383
+o2375:
+  LES BX,W[BP-4]
+  ES: MOV AL,B[BX]
+  MOV [BP+SI-086],AL
+  INC W[BP-4]
+  INC SI
+o2383:
+  LES BX,[BP-4]
+  ES: CMP B[BX],020
+  JZ o2392
+  ES: CMP B[BX],0d
+  JNZ o2375
+o2392:
+  MOV B[BP+SI-134],0
+  CMP B[BP-086],02f
+  JZ o23a8
+  CMP B[BP-086],02d
+  JZ o23a8
+  JMP o2453
+o23a8:
+  CMP B[BP-085],053
+  JZ o23b6
+  CMP B[BP-085],073
+  JNZ o23c5
+o23b6:
+  CMP B[BP-084],03a
+  JNZ o23c2
+  MOV SI,3
+  JMP o23c5
+o23c2:
+  MOV SI,2
+o23c5:
+  CMP B[BP-085],053
+  JZ o23d3
+  CMP B[BP-085],073
+  JNZ pc_o23f9
+o23d3:
+  XOR DI,DI
+  JMP o23ed
+o23d7:
+  MOV AX,DI
+  MOV DX,0a
+  MUL DX
+  PUSH AX
+  MOV AL,[BP+SI-086]
+  CBW
+  POP DX
+  ADD DX,AX
+  ADD DX,-030
+  MOV DI,DX
+  INC SI
+o23ed:
+  CMP B[BP+SI-086],0
+  JNZ o23d7
+  PUSH DI
+  CALL _setspeedmul
+  POP CX
+pc_o23f9:
+  CMP B[BP-085],03f
+  JZ o24oe
+  CMP B[BP-085],068
+  JZ o24oe
+  CMP B[BP-085],048
+  JNZ o2414
+o24oe:
+  CALL _printhelp
+  CALL _exit
+o2414:
+  CMP B[BP-085],043
+  JZ o2422
+  CMP B[BP-085],063
+  JNZ o242a
+o2422:
+  MOV AX,1
+  PUSH AX
+  CALL _setmode
+  POP CX
+o242a:
+  CMP B[BP-085],056
+  JZ o2438
+  CMP B[BP-085],076
+  JNZ o244o
+o2438:
+  MOV AX,2
+  PUSH AX
+  CALL _setmode
+  POP CX
+o244o:
+  CMP B[BP-085],051
+  JZ o244e
+  CMP B[BP-085],071
+  JNZ o2451
+o244e:
+  CALL _quiet
+o2451:
+  JMP o248f
+o2453:
+  CMP SI,1
+  JGE o245a
+  JMP o248f
+o245a:
+  XOR DI,DI
+  MOV W[BP-6],DI
+  JMP o247e
+o2461:
+  MOV AX,DI
+  MOV DX,0a
+  MUL DX
+  LEA BX,W[BP-086]
+  ADD BX,W[BP-6]
+  PUSH AX
+  MOV AL,B[BX]
+  CBW
+  POP DX
+  ADD DX,AX
+  ADD DX,-030
+  MOV DI,DX
+  INC W[BP-6]
+o247e:
+  LEA BX,W[BP-086]
+  ADD BX,W[BP-6]
+  CMP B[BX],0
+  JNZ o2461
+  PUSH DI
+  CALL _setspeedmul
+  POP CX
+o248f:
+  LES BX,W[BP-4]
+  ES: CMP B[BX],0d
+  JZ o249b
+  JMP o2363
+o249b:
+  POP DI
+  POP SI
+  MOV SP,BP
+  POP BP
+  RET

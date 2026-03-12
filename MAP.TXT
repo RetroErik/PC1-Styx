@@ -1,0 +1,521 @@
+MAIN   entry
+o172   exit?
+o17b   startup
+o227   random numbers?
+o2a9   abs
+o2c1
+o2e7
+o41c   delay
+o44b   init CGA 320x200x4 mode
+o4c3   init CGA
+o4f2   joystick?
+o543
+o55o   test for CGA
+o562   init CGA 160x100x16 mode
+o5c3   redraw entire screen
+o64o
+o6a7
+o71d
+o793
+o82b
+o8c1   clear screen to colour
+o9ob
+o933
+o95b
+oa59   check bounds?
+oa6e   calcaddr
+oa7d   put data in screen buffer
+oa89
+oab6
+oae7
+ob18
+ob49
+oc43
+oc63
+oc83
+oca3
+occf
+ocec   initint9
+od2e   interrupt 9
+od5a   analyse keyboard
+od7o   Left pressed
+od8d   Left released
+odb7   Right pressed
+odd4   Right released
+odfe   Up pressed
+oeoe   Up released
+oe1e   Down pressed
+oe2e   Down released
+oe3e   Upright pressed
+oe4e   Upright released
+oe5e   Upleft pressed
+oe6e   Upleft released
+oe7e   Downright pressed
+oe8e   Downright released
+oe9e   Downleft pressed
+oeae   Downleft released
+oebe   F1 pressed
+oec9   F1 released
+oecf   Ctrl pressed
+oed7   Ctrl released
+oedd   Alt pressed
+oee5   Alt released
+oeeb   Del pressed
+oef3   Del released
+oef9   F9 pressed
+ofoc   F9 released
+of12   Esc pressed
+of18
+ofce
+o1o5o  Output character
+o1o61  Set cursor position
+o1o77  Copy protection?
+o1o9a  read score table (disabled)
+o1oc3  write score table (disabled)
+o1ofe  Copy protection? (thoroughly disabled)
+o1142  Display title screen
+o117f  initint8 & turn off disk motor
+o11dd  interrupt 8
+o1227
+o135f
+o1391
+o17ae
+o18bf
+o18ec
+o1a11
+o1add
+o1ae5
+o1bo9
+o1bab
+o1dcb
+o1def
+o1e72
+o1f25
+o1f49
+o1f6f
+o1fa8
+o2o75
+o2of4
+o216o
+o2187
+o21ad
+o21do
+o2325
+o235f
+o24be
+o2868
+o287b
+o289b
+o28bc
+o28dd
+o28fe
+o297a
+o2beb
+o2df5
+o2e61
+o2e7b
+o2e98
+o2efe
+o2ff4
+o2fff
+o3o23
+o3o47
+o3o68
+o3o89
+o3ofa
+o3167
+o3172
+o319b
+o31c8
+o3229
+o3296
+o33oo
+o3339
+o3372
+o33af
+o33df
+o33fb
+o34o6
+o3411
+o3424
+o3437
+o34c3
+o3575  joystick?
+o35ee
+o364c
+o37oo
+o37a2
+o37aa
+o37cf
+o389f  switchoffdisk
+o38d8
+o38ef
+o3963
+o3aof
+o3a65
+o3bd3
+o3cc3
+o3ce6
+o3d8b
+o3dc8
+o3e6d
+o3f24
+o3fb8
+o4o9a
+o415b
+o41f3
+o42d1
+o4356
+o435e
+o43c7
+o4427  sound?
+o44ce
+o44f4
+o45b8
+o45d7
+o45e2
+o462o
+o4631
+o46ca
+o47o7
+o4744
+o476o  get next note in enter initials/new level jingle
+o4892
+o48bd
+o48d7
+o49oa
+o492a
+o4964  set up background sound
+o49f7
+o4a3c
+o4a8c
+o4b13  set sound frequency?
+o4b46  set sound frequency?
+o4b72
+o4c8a
+o4feb
+o5o29
+o5odd
+o521a
+o536d
+o53cd
+o551e
+o5535
+o556a
+o57d5
+o5858
+o5863
+o586e
+o5891
+o58a4
+o58ac
+o5939
+o5993
+o5a54
+o5ac5
+o5ad5
+o5afb
+o5bab
+o5bca
+o5ca2
+o5d66
+o5dce
+o5ede
+o5f1b
+o6o56
+o6of2
+o61of
+o611o
+o689c
+o68ce
+o6a3f
+o6b15
+o6b26
+o6b5a
+o6b7b
+o6b91
+o6baf
+o6bd3
+
+p
+p2
+p4
+p46
+p79
+p7b    Screen wibble position
+p87
+p95    joystick X
+p97    joystick Y
+p99    joystick button 1
+p9b    joystick button 2
+p9c
+p9d
+p9e
+p9f
+pa1
+pa3
+pa5
+pa7
+pa9
+paa
+pab
+ pac    int9save
+ pae    int9save
+pbo    left pressed
+pb1    right pressed
+pb2    up pressed
+pb3    down pressed
+pb4    upright pressed
+pb5    upleft pressed
+pb6    downright pressed
+pb7    downleft pressed
+pb8
+pb9
+pba    F1 pressed
+pbb
+pbc    Ctrl pressed
+pbd    Alt pressed
+pbe    Del pressed
+pbf    F9 pressed
+pco    Sound flag
+pc1    Esc pressed
+pc2    Screen wibble flag?
+pc3
+  pc4   peekb/pokeb segment
+pc6
+pc7
+pc9
+pcb
+pcd
+pcf
+pd1
+pd3
+pd4
+pd5
+pd7
+pd9
+pdb
+p12e   screen buffer
+p2o6e
+p2oa7
+p215o  score disk buffer
+p2351  disk retry counter
+p2354
+p38bc
+p38be  int8speed
+p38co
+p38c2
+p38c3  background sound volume
+ p38c5  int8save
+ p38c7  int8save
+p38ca
+p38cc
+p38ce
+p38do
+p38d2
+p38d6
+p38da
+p38de
+p38e2
+p38e6
+p38ea
+p38ee
+p38f2
+p38f6
+p38f8
+p39f8
+p39fa
+p39fc
+p39fe
+p3aoo
+p3ao2
+p3ao4
+p3ao6
+p3ao8
+p3aoc
+p3aoe
+p3a1o
+p3cdc
+p3ceo
+p3ce4
+p3ce8
+p3cec
+p3cfo
+p3cf2
+p3cf4
+p3cf6
+p3cf8
+p3cfa
+p3cfc
+p3cfe
+p3doo
+p3do2
+p3do4
+p3do6
+p3do8
+p3doa
+p3doc
+p3doe
+p3d1o
+p3d12
+p3d14
+p3d16
+p3d18
+p3d1a
+p3d1c
+p3d1e
+p3d2o
+p3d22
+p3d24
+p4cc4
+p5c64
+p5c7f
+p5c9a
+p5ca2
+p5caa
+p5cb2
+p5cb4
+p5cb6
+p5cb8
+p5cbc
+p5cbe
+p5cco
+p5cc2
+p5cc4
+p5cc6
+p5cc8
+p5cca
+p5ccc
+p5cce
+p5cdo
+p5cd2
+p5cd4
+p5cd6
+p5cd8
+p64a8
+p6c78
+p6c7a
+p6c7c
+p6c7e
+p6c8o
+p6c82
+p6c84
+p6c86
+p6c88
+p6c8a
+p6c8c
+p6c8e
+p6c9o
+p6c92
+p6c94
+p6c96
+p6c98
+p6c9a
+p6c9c
+p6ca6
+p6cca
+p6ccc
+p6cce
+p6cdo
+p6cf6
+p6cf8
+p6cfa
+p6d26
+p6da8
+p6de9
+p6dfa
+p6dfe
+p6eod
+p6e17
+p6e18
+p6e2o
+p6e28
+p6e34
+p6e37
+p6e39
+p6e44
+p6e4d
+p6e53
+p6e56
+p6e5a
+p6e5c
+p6e5e
+p6e6o
+p6e62
+p6e64
+p6e66
+p6e68
+p6e6a
+p6e6c
+p6e6e
+p6e7o
+p6e72
+p6e74
+p6e8o
+p6e82
+p6e84  int8speed
+p6e86
+p6e88
+p6e9o
+p6e98
+p6eao
+p6eb4
+p6eco
+p6ecc
+p6ed8
+p6ee4
+p6efo
+p6efc
+p6fo8
+p6f14
+p6f2o
+p6f2c
+p6f51
+p6f76
+p6f9b
+p6fco
+p6fe5
+p7ooa
+p7o2f
+p7o54
+p7o79
+p7o9e
+p7oc3
+p7oe8
+p71od
+p7132
+p7157
+p717c
+p71a1
+p71c6
+p71eb
+p721o
+p7235
+p725a
+p727f
+p72a4
+p72c9
+p72ee
+p7313
+p7338
+p735d
+p7382
+p73a7
+p73cc
+p73f1
+p7416
+p743b
+p746o
+p7485
+p74aa
+p74do
+p74d2
+p74d4
+p74d6
+p74d8
+p74da
+p74eb
+p74fc
+p751c
+p761e
+p763o

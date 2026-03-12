@@ -1,0 +1,64 @@
+All the code is in STYX1.ASM, STYX2.ASM, STYX3.ASM and PARSE.ASM. STYX1.ASM
+contains most of the input/output routines and therefore most of the modified
+code.
+
+DATA.ASM contains most of the static data. Added static data is in the code
+segment in STYX1.ASM. The data segment is a bit fragile - I think the
+unlabelled data between p4 and p46 must start at offset 6 for the program to
+work correctly - there may be other examples of DS data referenced by offset
+rather than label. As with DIGGER, the stack is at the end of the DS segment,
+so no data should be added there.
+
+Because of the difficulties with the data segment, it proved impossible to
+link in the C module (PARSECMD.C) directly, so I compiled it, disassembled it
+and linked in the assembler code (PARSE.ASM). These two (should) do the same
+thing.
+
+The speed code works a bit differently to Digger, the ratio of current system
+speed to an 8MHz 8086 is calculated and the delay loops multiplied up. Calls
+to the delay subroutine were added to the routines to flash the "Game over"
+message and play the little jingle at "Enter your initials" and on level
+completion. This will make the game a little slower on older machines, but you
+can always speed it up from the command line.
+
+Known bugs and issues:
+  Ball init makes sound on first game, even if sound is turned off at command
+  line. This messes up Windows.
+
+  Changing speed alters volume of some sound effects.
+
+  May be other speed problems, routines which have no delay loops and therefore
+  run too fast (serious) or speed 100 varying between machines (less serious,
+  since you can change the speed with the command line).
+
+  Don't know if it works on CGA and EGA machines yet.
+
+
+Copyright
+---------
+
+Windmill Software holds the copyright to the original Styx source code and
+binaries, and have exclusive rights to sell, license and produce the game in
+its original form.
+
+Rob Sleath has the right to use the Styx source code for development of
+other projects. Styx Remastered is such a project. It was produced without
+reference to the original Styx source by Windmill software, and without help
+from the original developers of Styx in any capacity other than historical
+advice. With the permission of Rob Sleath, Styx Remastered is Copyright (c)
+Andrew Jenner 1998-2004.
+
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+

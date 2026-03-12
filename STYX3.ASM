@@ -1,0 +1,3499 @@
+; Styx Remastered
+; Copyright (c) Andrew Jenner 1998-2004
+
+PUBLIC o43c7,o4427,o44ce,o44f4,o45b8,o45d7,o45e2,o462o
+PUBLIC o4631,o46ca,o47o7,o4744,o476o,o4892,o48bd,o48d7,o49oa,o492a,o4964,o49f7
+PUBLIC o4a3c,o4a8c,o4b13,o4b46,o4b72,o4c8a,o4feb,o5o29,o5odd,o521a,o536d,o53cd
+PUBLIC o551e,o5535,o556a,o57d5,o5858,o5863,o586e,o5891,o58a4,o58ac,o5939,o5993
+PUBLIC o5a54,o5ac5,o5ad5,o5afb,o5bab,o5bca,o5ca2,o5d66,o5dce,o5ede
+PUBLIC o5f1b,o6o56,o6of2,o61of,o611o,o689c,o68ce,o6a3f,o6b15,o6b26,o6b5a,o6b7b
+PUBLIC o6b91,o6baf,o6bd3
+PUBLIC codeend
+
+_TEXT SEGMENT WORD PUBLIC 'CODE'
+
+o43c7:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  MOV AL,B[p38c2]
+  XOR AH,AH
+  MOV W[p6e56],AX
+  CALL o44ce
+  CALL o45d7
+  ADD SP,2
+  POP BP
+  RET
+
+o4427:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+  MOV AL,0b6
+  OUT 043,AL
+  MOV AL,020
+  OUT 042,AL
+  XOR AL,AL
+  OUT 042,AL
+  IN AL,061
+  MOV W[BP+2],AX
+  AND AX,0fc
+  OR AL,3
+  OUT 061,AL
+  MOV W[BP+2],AX
+  MOV AL,036
+  OUT 043,AL
+  XOR AL,AL
+  OUT 040,AL
+  MOV AL,080
+  OUT 040,AL
+  CS: MOV W[int8speed],08000
+  MOV AX,1
+  XOR BX,BX
+  MOV W[p6e84],12000
+  MOV W[p6e82],028
+  MOV W[p6e5e],AX
+  MOV W[p6e86],AX
+  MOV W[p6e6o],AX
+  MOV W[p6e5a],AX
+  MOV W[p38bc],BX
+  MOV W[p6e5c],BX
+  CALL o49f7
+  CALL o43c7
+  CALL o4a8c
+  ADD SP,4
+  POP BP
+  RET
+
+o44ce:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,2000
+  MOV W[p6e86],0f
+  MOV W[p6e66],1
+  MOV W[p6e68],5
+  MOV W[p6e6a],0
+  MOV W[p6e62],AX
+  MOV W[p6e64],AX
+  POP BP
+  RET
+
+o44f4:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+  CMP W[p6e6a],0
+  JNZ o45o4
+  JMP o45b3
+o45o4:
+  MOV W[p6e6o],1
+  MOV AX,W[p6e62]
+  MOV BX,W[p6e64]
+  CMP BX,AX
+  JGE o451a
+  SUB W[p6e62],5
+o451a:
+  MOV AX,W[p6e62]
+  MOV BX,W[p6e64]
+  CMP BX,AX
+  JLE o452a
+  ADD W[p6e62],5
+o452a:
+  MOV W[p6e82],0a
+  MOV AX,W[p6e62]
+  SHL AX,1
+  MOV BX,5
+  PUSH BX
+  MOV W[p6e84],AX
+  CALL o227
+  MOV SP,BP
+  DEC AX
+  JNZ o456o
+  MOV AX,3
+  PUSH AX
+  CALL o227
+  MOV SP,BP
+  DEC AX
+  MOV BX,0e
+  PUSH BX
+  MOV W[p6e66],AX
+  CALL o227
+  MOV SP,BP
+  SUB AX,5
+  MOV W[p6e68],AX
+o456o:
+  MOV AX,W[p6e86]
+  ADD AX,W[p6e66]
+  CMP AX,014
+  MOV W[p6e86],AX
+  JG o4574
+  CMP AX,0a
+  JGE o457b
+o4574:
+  MOV AX,W[p6e68]
+  ADD W[p6e86],AX
+o457b:
+  CMP W[p6e86],032
+  JLE o4592
+  NEG W[p6e68]
+  MOV W[p6e66],-1
+  MOV W[p6e86],032
+o4592:
+  CMP W[p6e86],1
+  JGE o45b3
+  MOV AX,5
+  PUSH AX
+  CALL o227
+  MOV SP,BP
+  INC AX
+  INC AX
+  MOV W[p6e66],1
+  MOV W[p6e86],0
+  MOV W[p6e68],AX
+o45b3:
+  ADD SP,4
+  POP BP
+  RET
+
+o45b8:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  MOV W[p6e6a],1
+  MOV AX,W[BP+6]
+  MOV BX,5
+  IMUL BX
+  ADD AX,1500
+  MOV W[p6e64],AX
+  ADD SP,2
+  POP BP
+  RET
+
+o45d7:
+  PUSH BP
+  MOV BP,SP
+  MOV W[p6e6e],0
+  POP BP
+  RET
+
+o45e2:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  CMP W[p6e6e],0
+  JZ o461b
+  MOV W[p6e6o],1
+  MOV AX,5
+  IMUL W[p6e6c]
+  MOV BX,2000
+  SUB BX,AX
+  MOV AX,014
+  IMUL W[p6e6c]
+  MOV CX,30000
+  SUB CX,AX
+  MOV AX,W[p6e6c]
+  MOV W[p6e86],AX
+  MOV W[p6e82],CX
+  MOV W[p6e84],BX
+o461b:
+  ADD SP,2
+  POP BP
+  RET
+
+o462o:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,W[BP+4]
+  MOV W[p6e6e],1
+  MOV W[p6e6c],AX
+  POP BP
+  RET
+
+o4631:
+  PUSH BP
+  SUB SP,0c
+  MOV BP,SP
+  MOV W[BP+8],4000
+  MOV W[BP+0a],07e4  ;???
+  XOR AX,AX
+  MOV W[p6e6o],2
+  MOV W[p6e6e],AX
+  MOV W[p6e6a],AX
+  CALL o4356
+  JMP o46b3
+o4654:
+  MOV AX,W[BP+8]
+  MOV BX,W[BP+0a]
+  MOV W[p6e82],AX
+  MOV W[p6e84],BX
+  JMP o46c2
+o4663:
+  MOV AX,W[BP+8]
+  CALL o5d66
+  MOV SI,offset p6e88
+  PUSH SI
+  CALL o5993
+  CALL o5dce
+  MOV W[p6e82],AX
+  MOV AX,W[BP+0a]
+  CALL o5d66
+  MOV SI,offset p6e88
+  PUSH SI
+  CALL o5993
+  CALL o5dce
+  MOV W[p6e84],AX
+  JMP o46c2
+o468b:
+  MOV AX,W[BP+8]
+  CALL o5d66
+  MOV SI,offset p6e9o
+  PUSH SI
+  CALL o5993
+  CALL o5dce
+  MOV W[p6e82],AX
+  MOV AX,W[BP+0a]
+  CALL o5d66
+  MOV SI,offset p6e9o
+  PUSH SI
+  CALL o5993
+  CALL o5dce
+  MOV W[p6e84],AX
+  JMP o46c2
+o46b3:
+  CMP AX,5
+  JZ o468b
+  CMP AX,3
+  JZ o4663
+  CMP AX,2
+  JZ o4654
+o46c2:
+  CALL o4964
+  ADD SP,0c
+  POP BP
+  RET
+
+o46ca:
+  PUSH BP
+  SUB SP,8
+  MOV BP,SP
+  MOV AX,W[p6e82]
+  CALL o5d66
+  MOV SI,offset p6e98
+  PUSH SI
+  CALL o5993
+  CALL o5dce
+  MOV W[p6e82],AX
+  MOV AX,W[p6e84]
+  CALL o5d66
+  MOV SI,offset p6e98
+  PUSH SI
+  CALL o5993
+  CALL o5dce
+  MOV W[p6e84],AX
+  CALL o4964
+  MOV AX,1
+  PUSH AX
+  CALL o41c         ;Delay don't know
+  MOV SP,BP
+  ADD SP,8
+  POP BP
+  RET
+
+o47o7:
+  PUSH BP
+  SUB SP,8
+  MOV BP,SP
+  MOV AX,W[p6e82]
+  CALL o5d66
+  MOV SI,offset p6eao
+  PUSH SI
+  CALL o5993
+  CALL o5dce
+  MOV W[p6e82],AX
+  MOV AX,W[p6e84]
+  CALL o5d66
+  MOV SI,offset p6eao
+  PUSH SI
+  CALL o5993
+  CALL o5dce
+  MOV W[p6e84],AX
+  CALL o4964
+  MOV AX,1
+  PUSH AX
+  CALL o41c     ;Delay don't know
+  MOV SP,BP
+  ADD SP,8
+  POP BP
+  RET
+
+o4744:
+  PUSH BP
+  MOV BP,SP
+  XOR AX,AX
+  MOV W[p6e6o],2
+  MOV W[p6e6e],AX
+  MOV W[p6e6a],AX
+  CALL o49f7
+  MOV W[p6e8o],0
+  POP BP
+  RET
+
+o476o:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,W[p6e8o]
+  MOV SI,AX
+  CMP SI,018
+  JNB o4889
+  SHL SI,1
+  SHL SI,1
+  CS: MOV AX,W[SI+o484b]
+  MOV W[p6e82],AX
+  CS: MOV AX,W[SI+o484b+2]
+  MOV W[p6e84],AX
+o4889:
+  CALL o4964
+  INC W[p6e8o]
+  POP BP
+  RET
+
+o484b:
+  DW 05f2,011d1,0712,011d1,05f2,011d1,0712,011d1,05f2,011d1,0712,011d1
+  DW 05f2,011d1,0712,011d1,054c, 0fdf,064c, 0fdf,054c, 0fdf,064c, 0fdf
+  DW 054c, 0fdf,064c, 0fdf,054c, 0fdf,064c, 0fdf,04b8, 0e24,059c, 0e24
+  DW 04b8, 0e24,059c, 0e24,04b8, 0e24,059c, 0e24,04b8, 0e24,059c, 0e24
+
+o4892:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+o4898:
+  MOV AX,W[p6e82]
+  CMP AX,08e8
+  JGE o48b8
+  MOV BX,064
+  CWD
+  IDIV BX
+  ADD W[p6e82],AX
+  CALL o4964
+  MOV AX,3
+  PUSH AX
+  CALL o41c     ;Delay don't know
+  MOV SP,BP
+  JMP o4898
+o48b8:
+  ADD SP,2
+  POP BP
+  RET
+
+o48bd:
+  PUSH BP
+  MOV BP,SP
+  MOV W[p6e6a],0
+  CALL o49f7
+  MOV W[p6e6e],0
+  MOV W[p6e7o],012c  ;???
+  POP BP
+  RET
+
+o48d7:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  PUSH W[p6e7o]
+  CALL o4b13
+  MOV SP,BP
+  CALL delay1            ;Death delay
+  MOV AX,028
+  PUSH AX
+  CALL o4b13
+  MOV SP,BP
+  MOV AX,W[p6e7o]
+  MOV BX,064
+  CWD
+  IDIV BX
+  ADD W[p6e7o],AX
+  ADD SP,2
+  POP BP
+  RET
+
+o49oa:
+  PUSH BP
+  MOV BP,SP
+  MOV W[p6e6a],0
+  CALL o49f7
+  MOV W[p6e6e],0
+  MOV W[p6e72],2000
+  MOV W[p6e74],1000
+  POP BP
+  RET
+
+o492a:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  MOV W[p6e6o],2
+  MOV AX,W[p6e72]
+  MOV W[p6e82],AX
+  MOV BX,032
+  CWD
+  IDIV BX
+  SUB W[p6e72],AX
+  MOV AX,W[p6e74]
+  MOV W[p6e84],AX
+  CWD
+  IDIV BX
+  ADD W[p6e74],AX
+  CALL o4964
+  CALL delay2           ;Birth delay
+  ADD SP,2
+  POP BP
+  RET
+
+o4964:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+  CMP W[p6e5a],0
+  JNZ o4974
+  JMP o49f2
+o4974:
+  CALL o4a3c
+  PUSH W[p6e82]
+  CALL o4b46
+  MOV SP,BP
+  CMP W[p6e84],500
+  JGE o4995
+  CMP W[p6e6o],2
+  JNZ o4995
+  MOV W[p6e84],500
+o4995:
+  CMP W[p6e84],1000
+  JGE o49aa
+  CMP W[p6e6o],1
+  JNZ o49aa
+  MOV W[p6e84],1000
+o49aa:
+  MOV AX,W[p6e84]
+  MOV W[p38be],AX
+  CS: MOV W[int8speed],AX
+  OUT 040,AL
+  MOV AL,AH
+  OUT 040,AL
+  MOV AX,W[p6e86]
+  SUB AX,0a
+  CMP AX,1
+  MOV W[BP+2],AX
+  JGE o49e1
+  MOV W[BP+2],1
+o49e1:
+  CMP W[BP+2],032
+  JLE o49ec
+  MOV W[BP+2],032
+o49ec:
+  PUSH BX
+  PUSH CX
+  PUSH DX
+  XOR DX,DX
+  MOV AX,W[BP+2]
+  CS: MOV CX,W[volume+2]
+  CS: MOV BX,W[volume]
+  CALL lmul
+  XOR CX,CX
+  MOV BX,100
+  CALL ldiv
+  CMP DX,0
+  JE volok
+  XOR AX,AX
+  JMP volok2
+volok:
+  CMP AX,0
+  JNE volok2
+  MOV AX,1
+volok2:
+  MOV W[p38c3],AX
+  POP DX
+  POP CX
+  POP BX
+o49f2:
+  ADD SP,4
+  POP BP
+  RET
+
+o49f7:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+  CMP W[p6e5e],1
+  JNZ o4a37
+  XOR AX,AX
+  MOV BX,028
+  PUSH BX
+  MOV W[p38bc],AX
+  MOV W[p6e5e],AX
+  CALL o4b46
+  MOV SP,BP
+  IN AL,061
+  MOV W[BP+2],AX
+  AND AX,0fc
+  OR AL,3
+  OUT 061,AL
+o4a37:
+  ADD SP,4
+  POP BP
+  RET
+
+o4a3c:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+  MOV AX,W[p6e6o]
+  CMP W[p6e5e],0
+  MOV W[p38bc],AX
+  JNZ o4a87
+  CMP W[p6e5a],0
+  JZ o4a87
+  MOV W[p6e5e],1
+  MOV AX,028
+  PUSH AX
+  CALL o4b46
+  MOV SP,BP
+  IN AL,061
+  XOR AH,AH
+  MOV W[BP+2],AX
+  XOR AH,AH
+  OR AL,3
+  OUT 061,AL
+o4a87:
+  ADD SP,4
+  POP BP
+  RET
+
+o4a8c:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  CMP W[p6e5c],0
+  JNZ o4aa2
+  CALL o117f
+  MOV W[p6e5c],1
+o4aa2:
+  ADD SP,2
+  POP BP
+  RET
+
+o4b13:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  CMP W[p6e5a],0
+  JZ o4b41
+  MOV AX,W[BP+6]
+  OUT 042,AL
+  MOV AL,AH
+  OUT 042,AL
+o4b41:
+  ADD SP,2
+  POP BP
+  RET
+
+o4b46:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  MOV AX,W[BP+6]
+  OUT 042,AL
+  MOV AL,AH
+  OUT 042,AL
+  ADD SP,2
+  POP BP
+  RET
+
+o4b72:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  MOV AX,W[BP+6]
+  MOV SI,AX
+  CMP SI,0a
+  JNB o4c85
+  SHL SI,1
+  CS: MOV BX,W[SI+o4c61]
+  MOV AX,W[BP+8]
+  SHL AX,1
+  SHL AX,1
+  PUSH BX
+  PUSH W[BP+0a]
+  PUSH AX
+  CALL oc83
+  MOV SP,BP
+o4c85:
+  ADD SP,2
+  POP BP
+  RET
+
+o4c61:
+  DW offset p6eb4,offset p6eco,offset p6ecc,offset p6ed8,offset p6ee4
+  DW offset p6efo,offset p6efc,offset p6fo8,offset p6f14,offset p6f2o
+
+o4c8a:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,W[BP+4]
+  MOV SI,AX
+  SUB SI,020
+  JB o4fe9
+  CMP SI,040
+  JNB o4fe9
+  SHL SI,1
+  CS: MOV AX,W[SI+o4f54]
+  CMP AX,0
+  JE o4fe9
+  PUSH AX
+  PUSH W[BP+8]
+  PUSH W[BP+6]
+  CALL oc83
+  MOV SP,BP
+o4fe9:
+  POP BP
+  RET
+
+o4f54:
+  DW offset p72ee,0,0,0,0,0,0,0,0,0,0,0,0,0,offset p7313,offset p7416
+  DW offset p735d,offset p7382,offset p73a7,offset p73cc,offset p73f1
+  DW offset p7416,offset p743b,offset p746o,offset p7485,offset p74aa
+  DW 0,0,0,0,0,0,0,offset p6f2c,offset p6f51,offset p6f76,offset p6f9b
+  DW offset p6fco,offset p6fe5,offset p7ooa,offset p7o2f,offset p7o54
+  DW offset p7o79,offset p7o9e,offset p7oc3,offset p7oe8,offset p71od
+  DW offset p7132,offset p7157,offset p717c,offset p71a1,offset p71c6
+  DW offset p71eb,offset p721o,offset p7235,offset p725a,offset p727f
+  DW offset p72a4,offset p72c9,0,0,0,0,offset p7338
+
+o4feb:
+  PUSH BP
+  SUB SP,6
+  MOV BP,SP
+  MOV W[BP+4],0
+o4ff6:
+  MOV AX,W[BP+4]
+  MOV SI,W[BP+0a]
+  ADD SI,AX
+  MOV BL,B[SI]
+  XOR BH,BH
+  TEST BX,BX
+  MOV W[BP],BX
+  JZ o5o24
+  MOV BX,0a
+  IMUL BX
+  MOV BX,W[BP+0c]
+  ADD BX,AX
+  PUSH W[BP+0e]
+  PUSH BX
+  PUSH W[BP]
+  CALL o4c8a
+  MOV SP,BP
+  INC W[BP+4]
+  JMP o4ff6
+o5o24:
+  ADD SP,6
+  POP BP
+  RET
+
+o5o29:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  MOV AX,W[BP+6]
+  INC AX
+  MOV BX,6
+  CWD
+  IDIV BX
+  ADD DX,9
+  PUSH DX
+  MOV BX,offset p7ooa
+  PUSH BX
+  CALL o521a
+  MOV SP,BP
+  MOV AX,W[BP+6]
+  INC AX
+  INC AX
+  MOV BX,6
+  CWD
+  IDIV BX
+  ADD DX,9
+  PUSH DX
+  MOV BX,offset p6f2c
+  PUSH BX
+  CALL o521a
+  MOV SP,BP
+  MOV AX,W[BP+6]
+  ADD AX,3
+  MOV BX,6
+  CWD
+  IDIV BX
+  ADD DX,9
+  PUSH DX
+  MOV BX,offset p7oe8
+  PUSH BX
+  CALL o521a
+  MOV SP,BP
+  MOV AX,W[BP+6]
+  ADD AX,4
+  MOV BX,6
+  CWD
+  IDIV BX
+  ADD DX,9
+  PUSH DX
+  MOV BX,offset p7132
+  PUSH BX
+  CALL o521a
+  MOV SP,BP
+  MOV AX,W[BP+6]
+  ADD AX,5
+  MOV BX,6
+  CWD
+  IDIV BX
+  ADD DX,9
+  PUSH DX
+  MOV BX,offset p7235
+  PUSH BX
+  CALL o521a
+  MOV SP,BP
+  MOV AX,W[BP+6]
+  INC AX
+  MOV BX,6
+  CWD
+  IDIV BX
+  ADD DX,9
+  PUSH DX
+  MOV BX,offset p6fco
+  PUSH BX
+  CALL o521a
+  MOV SP,BP
+  MOV AX,W[BP+6]
+  INC AX
+  INC AX
+  MOV BX,6
+  CWD
+  IDIV BX
+  ADD DX,9
+  PUSH DX
+  MOV BX,offset p71a1
+  PUSH BX
+  CALL o521a
+  MOV SP,BP
+  ADD SP,2
+  POP BP
+  RET
+
+o5odd:
+  PUSH BP
+  MOV BP,SP
+  PUSH W[BP+4]
+  MOV AX,offset p6f2c
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p6f51
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p6f76
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p6f9b
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p6fco
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p6fe5
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p7ooa
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p7o2f
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p7o54
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p7o79
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p7o9e
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p7oc3
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p7oe8
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p71od
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p7132
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p7157
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p717c
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p71a1
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p71c6
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p71eb
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p721o
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p7235
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p725a
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p727f
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p72a4
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  PUSH W[BP+4]
+  MOV AX,offset p72c9
+  PUSH AX
+  CALL o521a
+  MOV SP,BP
+  POP BP
+  RET
+
+o521a:
+  PUSH BP
+  SUB SP,0c
+  MOV BP,SP
+  MOV AX,W[BP+012]
+  MOV W[BP+8],AX
+  SHL AX,4
+  MOV W[BP+6],2
+  MOV W[BP+0a],AX
+o5232:
+  MOV AX,W[BP+6]
+  CMP AX,025
+  JGE o528o
+  MOV SI,W[BP+010]
+  ADD SI,AX
+  MOV AL,B[SI]
+  XOR AH,AH
+  TEST AX,0f
+  MOV W[BP+2],AX
+  MOV W[BP],SI
+  JZ o525a
+  AND AX,0f0
+  MOV B[SI],AL
+  XOR AH,AH
+  OR AX,W[BP+8]
+  MOV B[SI],AL
+o525a:
+  MOV SI,W[BP+010]
+  ADD SI,W[BP+6]
+  MOV AL,B[SI]
+  XOR AH,AH
+  TEST AX,0f0
+  MOV W[BP+2],AX
+  MOV W[BP],SI
+  JZ o527b
+  AND AX,0f
+  MOV B[SI],AL
+  XOR AH,AH
+  OR AX,W[BP+0a]
+  MOV B[SI],AL
+o527b:
+  INC W[BP+6]
+  JMP o5232
+o528o:
+  ADD SP,0c
+  POP BP
+  RET
+
+o536d:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,W[BP+4]
+  SUB AX,030
+  JBE o53cb
+  CMP AX,9
+  JG o53cb
+  POP BP
+  RET
+o53cb:
+  XOR AX,AX
+  POP BP
+  RET
+
+o53cd:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,W[BP+4]
+  MOV SI,AX
+  SUB SI,2
+  JB o551b
+  CMP SI,038
+  JNB o551b
+  XOR AH,AH
+  CS: MOV AL,B[SI+o5498]
+  POP BP
+  RET
+o551b:
+  XOR AX,AX
+  POP BP
+  RET
+
+o5498:
+  DB "1234567890",0,0,0,0
+  DB "QWERTYUIOP",0,0,0,0
+  DB "ASDFGHJKL",0,0,0,0,0
+  DB "ZXCVBNM",0,".",0,0,0,0," "
+
+o551e:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,0a
+  PUSH AX
+  CALL o1o5o
+  MOV SP,BP
+  MOV AX,0d
+  PUSH AX
+  CALL o1o5o
+  MOV SP,BP
+  POP BP
+  RET
+
+o5535:
+  PUSH BP
+  SUB SP,8
+  MOV BP,SP
+  MOV W[BP+4],0
+o554o:
+  MOV SI,W[BP+0c]
+  ADD SI,W[BP+4]
+  MOV AL,B[SI]
+  XOR AH,AH
+  TEST AX,AX
+  MOV W[BP],AX
+  JZ o5562
+  PUSH W[BP+0e]
+  PUSH AX
+  MOV W[BP+6],AX
+  CALL o1o5o
+  MOV SP,BP
+  INC W[BP+4]
+  JMP o554o
+o5562:
+  CALL o551e
+  ADD SP,8
+  POP BP
+  RET
+
+o556a:
+  PUSH BP
+  SUB SP,0a
+  MOV BP,SP
+  MOV W[p74d8],0af
+  MOV W[BP+8],0
+  CALL o4c3
+  XOR AX,AX
+  PUSH AX
+  CALL o44b
+  POP AX
+  CALL ocec
+  MOV B[pc3],0
+  CALL o37cf
+  CALL o4427
+o55a8:
+  MOV AL,B[pc3]
+  TEST AL,AL
+  JZ o55b6
+  XOR AH,AH
+  AND AX,080
+  JZ o55do
+o55b6:
+  XOR AX,AX
+  PUSH AX
+  CALL o44b
+  MOV SP,BP
+  MOV DX,03d9
+  XOR AL,AL
+  OUT DX,AL    ;Border colour 0
+  CALL o1142
+  CALL o3e6d
+o55do:
+  CALL o3575
+  CALL o364c
+  MOV B[pc3],0
+  MOV W[pcb],0
+  MOV AX,6
+  PUSH AX
+  CALL o543
+  MOV SP,BP
+  XOR AX,AX
+  PUSH AX
+  CALL o8c1
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,9
+  PUSH AX
+  MOV AX,09e
+  PUSH AX
+  MOV AX,9
+  PUSH AX
+  MOV AX,1
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,062
+  PUSH AX
+  MOV AX,09e
+  PUSH AX
+  MOV AX,9
+  PUSH AX
+  MOV AX,09e
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,062
+  PUSH AX
+  MOV AX,1
+  PUSH AX
+  MOV AX,062
+  PUSH AX
+  MOV AX,09e
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,9
+  PUSH AX
+  MOV AX,1
+  PUSH AX
+  MOV AX,062
+  PUSH AX
+  MOV AX,1
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,0a
+  PUSH AX
+  MOV AX,09d
+  PUSH AX
+  MOV AX,0a
+  PUSH AX
+  MOV AX,2
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,061
+  PUSH AX
+  MOV AX,09d
+  PUSH AX
+  MOV AX,0a
+  PUSH AX
+  MOV AX,09d
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,061
+  PUSH AX
+  MOV AX,2
+  PUSH AX
+  MOV AX,061
+  PUSH AX
+  MOV AX,09d
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,0a
+  PUSH AX
+  MOV AX,2
+  PUSH AX
+  MOV AX,061
+  PUSH AX
+  MOV AX,2
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV W[p74d4],1
+  MOV W[p74d2],3
+  CALL o38d8
+  CALL o43c7
+  MOV B[pc3],0
+  CALL o57b5
+  MOV W[pcb],1
+  CALL o5c3
+o56dd:
+  CMP W[p74d2],0
+  JNZ o56e7
+  JMP o57af
+o56e7:
+  MOV W[p74do],0
+o56ed:
+  CMP W[p74do],0
+  JNZ o5739
+  CMP W[p74d6],0
+  JNZ o5739
+  CALL o21do
+  CALL o135f
+  CALL o435e
+  CALL o1bo9
+  CALL o21do
+  CALL o135f
+  CALL o435e
+  CALL o1bo9
+  CALL o21do
+  CALL o1bo9
+  CALL o21do
+  CALL o135f
+  CALL o435e
+  CALL o21do
+  CALL o1bo9
+  CALL o38ef
+  CALL o58ac
+  JMP o56ed
+o5739:
+  CMP W[p74do],0
+  JZ o575o
+  CALL o297a
+  CALL o1f25
+  CALL o1dcb
+  DEC W[p74d2]
+  CALL o3cc3
+o575o:
+  CMP W[p74d6],0
+  JZ o56dd
+  CALL o49f7
+  CALL o1f25
+  CALL o28bc
+  CALL o3bd3
+  CALL o57d5
+  MOV AX,W[p74d4]
+  INC AX
+  CMP AX,9
+  MOV W[p74d4],AX
+  JLE o5778
+  MOV W[p74d4],9
+o5778:
+  XOR AX,AX
+  MOV W[BP+6],AX
+  MOV W[pcb],AX
+o578o:
+  CMP W[BP+6],9
+  JGE o57ao
+  XOR AX,AX
+  PUSH AX
+  PUSH W[BP+6]
+  MOV AX,09f
+  PUSH AX
+  PUSH W[BP+6]
+  XOR AX,AX
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  INC W[BP+6]
+  JMP o578o
+o57ao:
+  MOV W[pcb],1
+  CALL o57b5
+  CALL o5c3
+  JMP o56dd
+o57af:
+  CALL o3a65
+  JMP o55a8
+o57b5:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  MOV W[p74d6],0
+  CALL o1227
+  CALL o1ae5
+  CALL o21ad
+  CALL o37aa
+  CALL o3cc3
+  ADD SP,2
+  POP BP
+  RET
+
+o57d5:
+  PUSH BP
+  SUB SP,6
+  MOV BP,SP
+  CALL o4744
+  MOV W[pcb],0
+  MOV W[BP+4],0b
+o57e9:
+  CMP W[BP+4],01c
+  JGE o58oa
+  XOR AX,AX
+  PUSH AX
+  PUSH W[BP+4]
+  MOV AX,09c
+  PUSH AX
+  PUSH W[BP+4]
+  MOV AX,3
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  INC W[BP+4]
+  JMP o57e9
+o58oa:
+  MOV W[BP+2],01c
+o58of:
+  MOV AX,W[BP+2]
+  CMP AX,061
+  JGE o5847
+  MOV W[BP+4],AX
+o581a:
+  MOV AX,W[BP+2]
+  ADD AX,3
+  MOV BX,W[BP+4]
+  CMP BX,AX
+  JGE o583e
+  XOR AX,AX
+  PUSH AX
+  PUSH BX
+  MOV AX,09c
+  PUSH AX
+  PUSH BX
+  MOV AX,3
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  INC W[BP+4]
+  JMP o581a
+o583e:
+  CALL o476o
+  MOV AX,8
+  PUSH AX
+  CALL o41c       ;Delay don't know
+  POP AX
+  ADD W[BP+2],3
+  JMP o58of
+o5847:
+  CALL o4892
+  CALL o4744
+  MOV W[pcb],1
+  ADD SP,6
+  POP BP
+  RET
+
+o5858:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,W[BP+4]
+  MOV W[p74do],AX
+  POP BP
+  RET
+
+o5863:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,W[BP+4]
+  MOV W[p74d6],AX
+  POP BP
+  RET
+
+o586e:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  CMP W[p74do],0
+  JNZ o5882
+  CMP W[p74d6],0
+  JZ o588a
+o5882:
+  MOV AX,1
+  ADD SP,2
+  POP BP
+  RET
+o588a:
+  XOR AX,AX
+  ADD SP,2
+  POP BP
+  RET
+
+o5891:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,W[p74d4]
+  POP BP
+  RET
+
+o58a4:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,W[p74d2]
+  POP BP
+  RET
+
+o58ac:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+  MOV AL,B[pc3]
+  XOR AH,AH
+  CMP AX,03b
+  MOV W[BP],AX
+  JZ o58c4
+  CMP AX,0bb
+  JNZ o5934
+o58c4:
+  MOV AX,028
+  PUSH AX
+  CALL o4b13
+  MOV SP,BP
+  CALL o49f7
+  MOV AX,3
+  PUSH AX
+  CALL o5odd
+  MOV SP,BP
+  MOV AX,1
+  PUSH AX
+  XOR AX,AX
+  PUSH AX
+  MOV AX,offset p74da
+  PUSH AX
+  CALL o4feb
+  MOV SP,BP
+o58e9:
+  MOV AL,B[pc3]
+  XOR AH,AH
+  CMP AX,03b
+  JNZ o58fe
+  MOV AX,028
+  PUSH AX
+  CALL o4b13
+  MOV SP,BP
+  JMP o58e9
+o58fe:
+  MOV AL,B[pc3]
+  XOR AH,AH
+  AND AX,080
+  JZ o5913
+  MOV AX,028
+  PUSH AX
+  CALL o4b13
+  MOV SP,BP
+  JMP o58fe
+o5913:
+  MOV AX,7
+  PUSH AX
+  CALL o5odd
+  MOV SP,BP
+  MOV AX,1
+  PUSH AX
+  XOR AX,AX
+  PUSH AX
+  MOV AX,offset p74eb
+  PUSH AX
+  CALL o4feb
+  MOV SP,BP
+  CALL o3cc3
+  MOV B[pc3],0
+o5934:
+  ADD SP,4
+  POP BP
+  RET
+
+o596b:
+  MOV W[BP],010
+o597o:
+  SHR SI,1
+  RCR AX,1
+  RCR BX,1
+  RCR CX,1
+  RCR DX,1
+  SHR DI,1
+  JNB o598d
+  ADD DX,W[BP+014]
+  ADC CX,W[BP+012]
+  ADC BX,W[BP+010]
+  ADC AX,W[BP+0e]
+  ADC SI,0
+o598d:
+  DEC W[BP]
+  JNZ o597o
+  RET
+
+o5993:
+  PUSH BP
+  PUSH DI
+  SUB SP,016
+  MOV BP,SP
+  MOV DI,W[SI+6]
+  XOR DI,AX
+  MOV W[BP+2],DI
+  AND AX,07fff
+  JNZ o59b8
+  MOV DI,AX
+  OR DI,BX
+  JNZ o59b8
+  OR DI,CX
+  JNZ o59b8
+  OR DI,DX
+  JNZ o59b8
+  JMP o5a41
+o59b8:
+  MOV DI,W[SI+6]
+  AND DI,07fff
+  JNZ o59cf
+  OR DI,W[SI+4]
+  JNZ o59cf
+  OR DI,W[SI+2]
+  JNZ o59cf
+  OR DI,W[SI]
+  JZ o5a41
+o59cf:
+  CALL o689c
+  MOV W[BP+4],SI
+  MOV W[BP+6],AX
+  MOV W[BP+8],BX
+  MOV W[BP+0a],CX
+  MOV W[BP+0c],DX
+  MOV SI,W[BP+01c]
+  MOV AX,W[SI+6]
+  MOV BX,W[SI+4]
+  MOV CX,W[SI+2]
+  MOV DX,W[SI]
+  CALL o689c
+  ADD W[BP+4],SI
+  MOV W[BP+0e],AX
+  MOV W[BP+010],BX
+  MOV W[BP+012],CX
+  MOV W[BP+014],DX
+  XOR SI,SI
+  XOR AX,AX
+  XOR BX,BX
+  XOR CX,CX
+  XOR DX,DX
+  MOV DI,W[BP+0c]
+  CALL o596b
+  MOV DI,W[BP+0a]
+  CALL o596b
+  MOV DI,W[BP+8]
+  CALL o596b
+  MOV DI,W[BP+6]
+  CALL o596b
+o5a23:
+  TEST SI,SI
+  JZ o5a36
+  SHR SI,1
+  RCR AX,1
+  RCR BX,1
+  RCR CX,1
+  RCR DX,1
+  INC W[BP+4]
+  JMP o5a23
+o5a36:
+  MOV SI,W[BP+4]
+  MOV DI,W[BP+2]
+  CALL o68ce
+  JMP o5a49
+o5a41:
+  XOR AX,AX
+  XOR BX,BX
+  XOR CX,CX
+  XOR DX,DX
+o5a49:
+  MOV SI,W[BP+01c]
+  ADD SP,016
+  POP DI
+  POP BP
+  RET 2
+
+o5a54:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+  MOV W[BP],AX
+  OR AX,BX
+  JZ o5aco
+  MOV W[BP+2],CX
+  OR CX,DX
+  JZ o5abc
+  MOV AX,W[BP]
+  MOV CX,W[BP+2]
+  MOV SI,AX
+  TEST SI,SI
+  JNS o5a7b
+  NOT AX
+  NEG BX
+  SBB AX,-1
+o5a7b:
+  XOR SI,CX
+  MOV W[BP],SI
+  TEST CX,CX
+  JNS o5a8b
+  NOT CX
+  NEG DX
+  SBB CX,-1
+o5a8b:
+  MOV SI,020
+  MOV W[BP+2],SI
+  XOR SI,SI
+  XOR DI,DI
+o5a95:
+  SHR SI,1
+  RCR DI,1
+  RCR AX,1
+  RCR BX,1
+  JNB o5aa3
+  ADD DI,DX
+  ADC SI,CX
+o5aa3:
+  DEC W[BP+2]
+  JNZ o5a95
+  SHR AX,1
+  RCR BX,1
+  MOV SI,W[BP]
+  TEST SI,SI
+  JNS o5aco
+  NOT AX
+  NEG BX
+  SBB AX,-1
+  JMP o5aco
+o5abc:
+  XOR AX,AX
+  XOR BX,BX
+o5aco:
+  ADD SP,4
+  POP BP
+  RET
+
+o5ac5:
+  PUSH BP
+  MOV BP,SP
+  PUSH W[BP+6]
+  PUSH W[BP+4]
+  CALL o172
+  MOV SP,BP
+  POP BP
+  RET
+
+o5ad5:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+  MOV W[BP+2],0
+o5aeo:
+  MOV SI,W[BP+8]
+  ADD SI,W[BP+2]
+  MOV AL,B[SI]
+  XOR AH,AH
+  TEST AX,AX
+  JZ o5af3
+  INC W[BP+2]
+  JMP o5aeo
+o5af3:
+  MOV AX,W[BP+2]
+  ADD SP,4
+  POP BP
+  RET
+
+o5afb:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+  MOV W[BP],CX
+  OR CX,DX
+  JNZ o5bof
+  XOR AX,AX
+  XOR BX,BX
+  JMP o5ba6
+o5bof:
+  MOV W[BP+2],AX
+  OR AX,BX
+  JNZ o5b1d
+  XOR CX,CX
+  XOR DX,DX
+  JMP o5ba6
+o5b1d:
+  MOV CX,W[BP]
+  MOV AX,W[BP+2]
+  MOV SI,AX
+  TEST SI,SI
+  JNS o5b3o
+  NOT AX
+  NEG BX
+  SBB AX,-1
+o5b3o:
+  XOR SI,CX
+  MOV W[BP],SI
+  XOR SI,SI
+  TEST CX,CX
+  JNS o5b42
+  NOT CX
+  NEG DX
+  SBB CX,-1
+o5b42:
+  JNZ o5b69
+  TEST DX,DX
+  JS o5b61
+  MOV DI,020
+o5b4b:
+  SHL BX,1
+  RCL AX,1
+  RCL SI,1
+  CMP SI,DX
+  JB o5b58
+  SUB SI,DX
+  INC BX
+o5b58:
+  DEC DI
+  JNZ o5b4b
+  XOR CX,CX
+  MOV DX,SI
+  JMP o5b8a
+o5b61:
+  SHL BX,1
+  RCL AX,1
+  SHL DX,1
+  RCL CX,1
+o5b69:
+  MOV DI,010
+o5b6c:
+  SHL BX,1
+  RCL AX,1
+  RCL SI,1
+  CMP SI,CX
+  JB o5b81
+  JNZ o5b7c
+  CMP AX,DX
+  JB o5b81
+o5b7c:
+  SUB AX,DX
+  SBB SI,CX
+  INC BX
+o5b81:
+  DEC DI
+  JNZ o5b6c
+  MOV CX,SI
+  MOV DX,AX
+  XOR AX,AX
+o5b8a:
+  TEST W[BP],08000
+  JZ o5b98
+  NOT AX
+  NEG BX
+  SBB AX,-1
+o5b98:
+  TEST W[BP+2],08000
+  JZ o5ba6
+  NOT CX
+  NEG DX
+  SBB CX,-1
+o5ba6:
+  ADD SP,4
+  POP BP
+  RET
+
+o5bab:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+o5bb1:
+  MOV SI,W[BP+8]
+  INC W[BP+8]
+  MOV DI,W[BP+0a]
+  INC W[BP+0a]
+  MOV AL,B[DI]
+  MOV B[SI],AL
+  TEST AL,AL
+  JNZ o5bb1
+  ADD SP,4
+  POP BP
+  RET
+
+o5bca:
+  PUSH BP
+  SUB SP,014
+  MOV BP,SP
+  MOV SI,W[BP+018]
+  MOV B[SI],0
+  CMP W[BP+01c],2
+  JGE o5be3
+  XOR AX,AX
+  ADD SP,014
+  POP BP
+  RET
+o5be3:
+  MOV W[BP+4],0b
+o5be8:
+  MOV AX,W[BP+4]
+  DEC AX
+  MOV SI,AX
+  MOV W[BP+4],AX
+  MOV AX,W[BP+01a]
+  MOV BX,0a
+  XOR DX,DX
+  DIV BX
+  ADD DX,030
+  MOV B[BP+SI+8],DL
+  MOV AX,W[BP+01a]
+  XOR DX,DX
+  DIV BX
+  MOV W[BP+01a],AX
+  CMP W[BP+01a],0
+  JNZ o5be8
+  MOV AX,0b
+  MOV BX,W[BP+4]
+  SUB AX,BX
+  MOV CX,W[BP+01c]
+  CMP AX,CX
+  MOV W[BP],AX
+  JL o5c29
+  INC AX
+  SUB AX,CX
+  ADD W[BP+4],AX
+o5c29:
+  MOV W[BP+6],0
+o5c2e:
+  MOV AX,W[BP+4]
+  CMP AX,0b
+  JGE o5c4b
+  MOV SI,W[BP+018]
+  ADD SI,W[BP+6]
+  INC W[BP+4]
+  MOV DI,AX
+  MOV AL,B[BP+DI+8]
+  MOV B[SI],AL
+  INC W[BP+6]
+  JMP o5c2e
+o5c4b:
+  MOV AX,W[BP+6]
+  MOV SI,W[BP+018]
+  ADD SI,AX
+  MOV B[SI],0
+  ADD SP,014
+  POP BP
+  RET
+o5c5b:
+  MOV W[BP],010
+  XOR DI,DI
+o5c62:
+  SHL DI,1
+  TEST SI,SI
+  JNZ o5c82
+  CMP AX,W[BP+0e]
+  JB o5c92
+  JNZ o5c82
+  CMP BX,W[BP+010]
+  JB o5c92
+  JNZ o5c82
+  CMP CX,W[BP+012]
+  JB o5c92
+  JNZ o5c82
+  CMP DX,W[BP+014]
+  JBE o5c92
+o5c82:
+  SUB DX,W[BP+014]
+  SBB CX,W[BP+012]
+  SBB BX,W[BP+010]
+  SBB AX,W[BP+0e]
+  SBB SI,0
+  INC DI
+o5c92:
+  SHL DX,1
+  RCL CX,1
+  RCL BX,1
+  RCL AX,1
+  RCL SI,1
+  DEC W[BP]
+  JNZ o5c62
+  RET
+
+o5ca2:
+  PUSH BP
+  PUSH DI
+  SUB SP,016
+  MOV BP,SP
+  MOV DI,W[SI+6]
+  XOR DI,AX
+  MOV W[BP+2],DI
+  AND AX,07fff
+  JNZ o5cc7
+  MOV DI,AX
+  OR DI,BX
+  JNZ o5cc7
+  OR DI,CX
+  JNZ o5cc7
+  OR DI,DX
+  JNZ o5cc7
+  JMP o5d53
+o5cc7:
+  MOV DI,W[SI+6]
+  AND DI,07fff
+  JNZ o5ce8
+  OR DI,W[SI+4]
+  JNZ o5ce8
+  OR DI,W[SI+2]
+  JNZ o5ce8
+  OR DI,W[SI]
+  JNZ o5ce8
+  MOV AX,3
+  PUSH AX
+  CALL o61of
+  POP AX
+  JMP o5d53
+o5ce8:
+  CALL o689c
+  MOV W[BP+4],SI
+  MOV W[BP+6],AX
+  MOV W[BP+8],BX
+  MOV W[BP+0a],CX
+  MOV W[BP+0c],DX
+  MOV SI,W[BP+01c]
+  MOV AX,W[SI+6]
+  MOV BX,W[SI+4]
+  MOV CX,W[SI+2]
+  MOV DX,W[SI]
+  CALL o689c
+  SUB W[BP+4],SI
+  MOV W[BP+0e],AX
+  MOV W[BP+010],BX
+  MOV W[BP+012],CX
+  MOV W[BP+014],DX
+  XOR SI,SI
+  MOV AX,W[BP+6]
+  MOV BX,W[BP+8]
+  MOV CX,W[BP+0a]
+  MOV DX,W[BP+0c]
+  CALL o5c5b
+  MOV W[BP+6],DI
+  CALL o5c5b
+  MOV W[BP+8],DI
+  CALL o5c5b
+  MOV W[BP+0a],DI
+  CALL o5c5b
+  MOV DX,DI
+  MOV CX,W[BP+0a]
+  MOV BX,W[BP+8]
+  MOV AX,W[BP+6]
+  MOV SI,W[BP+4]
+  MOV DI,W[BP+2]
+  CALL o68ce
+  JMP o5d5b
+o5d53:
+  XOR AX,AX
+  XOR BX,BX
+  XOR CX,CX
+  XOR DX,DX
+o5d5b:
+  MOV SI,W[BP+01c]
+  ADD SP,016
+  POP DI
+  POP BP
+  RET 2
+
+o5d66:
+  PUSH SI
+  PUSH DI
+  XOR BX,BX
+  XOR CX,CX
+  XOR DX,DX
+  MOV DI,AX
+  TEST AX,AX
+  JNS o5d76
+  NEG AX
+o5d76:
+  MOV SI,0f
+  CALL o68ce
+  POP DI
+  POP SI
+  RET
+
+o5dce:
+  PUSH SI
+  PUSH DI
+  MOV DI,AX
+  AND DI,07fff
+  JNZ o5ddd
+o5dd8:
+  XOR AX,AX
+  POP DI
+  POP SI
+  RET
+o5ddd:
+  PUSH AX
+  CALL o689c
+  POP DI
+  INC SI
+  JLE o5dd8
+  CMP SI,010
+  JL o5def
+  MOV AX,07fff
+  JMP o5df6
+o5def:
+  MOV CX,010
+  SUB CX,SI
+  SHR AX,CL
+o5df6:
+  TEST DI,DI
+  JNS o5dfc
+  NEG AX
+o5dfc:
+  POP DI
+  POP SI
+  RET
+
+o5ede:
+  PUSH BP
+  SUB SP,4
+  MOV BP,SP
+o5ee4:
+  MOV SI,W[BP+8]
+  MOV AL,B[SI]
+  XOR AH,AH
+  TEST AX,AX
+  JZ o5ef4
+  INC W[BP+8]
+  JMP o5ee4
+o5ef4:
+  MOV SI,W[BP+8]
+  INC W[BP+8]
+  MOV DI,W[BP+0a]
+  INC W[BP+0a]
+  MOV AL,B[DI]
+  MOV B[SI],AL
+  TEST AL,AL
+  JNZ o5ef4
+  ADD SP,4
+  POP BP
+  RET
+
+o5f1b:
+  PUSH BP
+  PUSH DI
+  SUB SP,0e
+  MOV BP,SP
+  MOV W[BP],08000
+  MOV W[BP+2],AX
+  AND AX,07fff
+  JNZ o5f4e
+  MOV DI,AX
+  OR DI,BX
+  JNZ o5f4e
+  OR DI,CX
+  JNZ o5f4e
+  OR DI,DX
+  JNZ o5f4e
+  MOV AX,W[SI+6]
+  XOR AX,W[BP]
+  MOV BX,W[SI+4]
+  MOV CX,W[SI+2]
+  MOV DX,W[SI]
+  JMP o6o4b
+o5f4e:
+  MOV DI,W[SI+6]
+  AND DI,07fff
+  JNZ o5f6b
+  OR DI,W[SI+4]
+  JNZ o5f6b
+  OR DI,W[SI+2]
+  JNZ o5f6b
+  OR DI,W[SI]
+  JNZ o5f6b
+  MOV AX,W[BP+2]
+  JMP o6o4b
+o5f6b:
+  CALL o689c
+  MOV W[BP+4],SI
+  MOV W[BP+6],AX
+  MOV W[BP+8],BX
+  MOV W[BP+0a],CX
+  MOV W[BP+0c],DX
+  MOV SI,W[BP+014]
+  MOV AX,W[SI+6]
+  MOV BX,W[SI+4]
+  MOV CX,W[SI+2]
+  MOV DX,W[SI]
+  CALL o689c
+  MOV DI,SI
+  SUB SI,W[BP+4]
+  JGE o5fbf
+  CMP SI,-040
+  JG o5fb2
+  MOV SI,W[BP+4]
+  MOV DI,W[BP+2]
+  MOV AX,W[BP+6]
+  MOV BX,W[BP+8]
+  MOV CX,W[BP+0a]
+  MOV DX,W[BP+0c]
+  CALL o68ce
+  JMP o6o4b
+o5fb2:
+  SHR AX,1
+  RCR BX,1
+  RCR CX,1
+  RCR DX,1
+  INC SI
+  JNZ o5fb2
+  JMP o5fd9
+o5fbf:
+  MOV W[BP+4],DI
+  CMP SI,040
+  JL o5fd9
+  MOV DI,W[BP+014]
+  MOV DI,W[DI+6]
+  XOR DI,W[BP]
+  MOV SI,W[BP+4]
+  CALL o68ce
+  JMP o6o4b
+o5fd9:
+  XCHG AX,W[BP+6]
+  XCHG BX,W[BP+8]
+  XCHG CX,W[BP+0a]
+  XCHG DX,W[BP+0c]
+  TEST SI,SI
+  JZ o5ff4
+o5fe9:
+  SHR AX,1
+  RCR BX,1
+  RCR CX,1
+  RCR DX,1
+  DEC SI
+  JNZ o5fe9
+o5ff4:
+  MOV SI,W[BP+014]
+  MOV SI,W[SI+6]
+  XOR SI,W[BP+2]
+  XOR SI,W[BP]
+  JS o6o1d
+  ADD DX,W[BP+0c]
+  ADC CX,W[BP+0a]
+  ADC BX,W[BP+8]
+  ADC AX,W[BP+6]
+  JNB o6o42
+  RCR AX,1
+  RCR BX,1
+  RCR CX,1
+  RCR DX,1
+  INC W[BP+4]
+  JMP o6o42
+o6o1d:
+  SUB DX,W[BP+0c]
+  SBB CX,W[BP+0a]
+  SBB BX,W[BP+8]
+  SBB AX,W[BP+6]
+  JNB o6o42
+  XOR W[BP+2],08000
+  NOT AX
+  NOT BX
+  NOT CX
+  NEG DX
+  CMC
+  ADC CX,0
+  ADC BX,0
+  ADC AX,0
+o6o42:
+  MOV DI,W[BP+2]
+  MOV SI,W[BP+4]
+  CALL o68ce
+o6o4b:
+  MOV SI,W[BP+014]
+  ADD SP,0e
+  POP DI
+  POP BP
+  RET 2
+
+o6o56:
+  PUSH BP
+  SUB SP,010c
+  MOV BP,SP
+  LEA AX,W[BP+0112]
+  MOV W[BP+0a],AX
+o6o64:
+  MOV SI,W[BP+0110]
+  MOV AL,B[SI]
+  XOR AH,AH
+  TEST AX,AX
+  JZ o6oec
+  MOV BX,SI
+  MOV W[BP],BX
+  INC BX
+  MOV AL,B[SI]
+  XOR AH,AH
+  CMP AX,025
+  MOV W[BP+4],AX
+  MOV W[BP+0110],BX
+  JNZ o6oe1
+  MOV AL,B[BX]
+  XOR AH,AH
+  CMP AX,025
+  JNZ o6oa2
+  INC W[BP+0110]
+  MOV AL,B[BX]
+  XOR AH,AH
+  PUSH AX
+  MOV W[BP+4],AX
+  CALL o6a3f
+  MOV SP,BP
+  JMP o6o64
+o6oa2:
+  LEA AX,W[BP+6]
+  PUSH AX
+  LEA AX,W[BP+0a]
+  PUSH AX
+  LEA AX,W[BP+0c]
+  PUSH AX
+  PUSH W[BP+0110]
+  CALL o611o
+  MOV SP,BP
+  TEST AX,AX
+  MOV W[BP+8],AX
+  JZ o6o64
+  MOV W[BP+2],0
+  MOV W[BP+0110],AX
+o6oc7:
+  MOV AX,W[BP+2]
+  CMP AX,W[BP+6]
+  JGE o6o64
+  MOV SI,AX
+  MOV AL,B[BP+SI+0c]
+  XOR AH,AH
+  PUSH AX
+  CALL o6a3f
+  MOV SP,BP
+  INC W[BP+2]
+  JMP o6oc7
+o6oe1:
+  PUSH W[BP+4]
+  CALL o6a3f
+  MOV SP,BP
+  JMP o6o64
+o6oec:
+  ADD SP,010c
+  POP BP
+  RET
+
+o6of2:
+  PUSH AX
+  XOR AX,CX
+  POP AX
+  PUSH AX
+  JS o61o8
+  SUB AX,CX
+  JNZ o61ob
+  XOR AX,AX
+  CMP BX,DX
+  JZ o61ob
+  JA o61o8
+  DEC AX
+  JMP o61ob
+o61o8:
+  OR AX,07fff
+o61ob:
+  TEST AX,AX
+  POP AX
+  RET
+
+o61of:
+  RET
+
+o611o:
+  PUSH BP
+  SUB SP,036
+  MOV BP,SP
+  XOR AX,AX
+  MOV W[BP+012],-1
+  MOV W[BP+014],020
+  MOV SI,W[BP+03a]
+  MOV BL,B[SI]
+  XOR BH,BH
+  CMP BX,02d
+  MOV W[BP+0c],AX
+  MOV W[BP+016],AX
+  MOV W[BP+0e],AX
+  MOV W[BP+010],AX
+  JNZ o6143
+  MOV AX,1
+  INC W[BP+03a]
+  MOV W[BP+0c],AX
+o6143:
+  MOV SI,W[BP+03a]
+  MOV AL,B[SI]
+  XOR AH,AH
+  MOV W[BP],AX
+  INC AX
+  MOV SI,AX
+  MOV AL,B[SI+p751c]
+  XOR AH,AH
+  AND AX,4
+  JZ o61a5
+  CMP W[BP],030
+  JNZ o6166
+  MOV W[BP+014],030
+o6166:
+  MOV SI,W[BP+03a]
+  INC W[BP+03a]
+  MOV AL,B[SI]
+  XOR AH,AH
+  AND AX,0f
+  MOV W[BP+016],AX
+o6176:
+  MOV SI,W[BP+03a]
+  MOV AL,B[SI]
+  XOR AH,AH
+  INC AX
+  MOV DI,AX
+  MOV AL,B[DI+p751c]
+  XOR AH,AH
+  AND AX,4
+  JZ o61a5
+  MOV AX,W[BP+016]
+  MOV BX,0a
+  IMUL BX
+  INC W[BP+03a]
+  MOV BL,B[SI]
+  XOR BH,BH
+  AND BX,0f
+  ADD AX,BX
+  MOV W[BP+016],AX
+  JMP o6176
+o61a5:
+  MOV SI,W[BP+03a]
+  MOV AL,B[SI]
+  XOR AH,AH
+  CMP AX,02e
+  JNZ o61e8
+  INC W[BP+03a]
+  MOV W[BP+012],0
+o61b9:
+  MOV SI,W[BP+03a]
+  MOV AL,B[SI]
+  XOR AH,AH
+  INC AX
+  MOV DI,AX
+  MOV AL,B[DI+p751c]
+  XOR AH,AH
+  AND AX,4
+  JZ o61e8
+  MOV AX,W[BP+012]
+  MOV BX,0a
+  IMUL BX
+  INC W[BP+03a]
+  MOV BL,B[SI]
+  XOR BH,BH
+  AND BX,0f
+  ADD AX,BX
+  MOV W[BP+012],AX
+  JMP o61b9
+o61e8:
+  MOV SI,W[BP+03a]
+  MOV AL,B[SI]
+  XOR AH,AH
+  CMP AX,06c
+  JNZ o61fd
+  MOV AX,1
+  INC W[BP+03a]
+  MOV W[BP+0e],AX
+o61fd:
+  MOV W[BP+01c],0
+  MOV SI,W[BP+03a]
+  MOV AL,B[SI]
+  XOR AH,AH
+  JMP o64b7
+o62oc:
+  CMP W[BP+0e],0
+  JZ o6229
+  MOV SI,W[BP+03e]
+  MOV AX,W[SI]
+  ADD W[SI],4
+  MOV SI,AX
+  MOV BX,W[SI+2]
+  MOV CX,W[SI]
+  MOV W[BP+01e],CX
+  MOV W[BP+020],BX
+  JMP o6242
+o6229:
+  MOV SI,W[BP+03e]
+  MOV AX,W[SI]
+  ADD W[SI],2
+  MOV SI,AX
+  MOV BX,W[SI]
+  XOR CX,CX
+  TEST BX,BX
+  JNS o623c
+  DEC CX
+o623c:
+  MOV W[BP+020],CX
+  MOV W[BP+01e],BX
+o6242:
+  MOV AX,W[BP+020]
+  TEST AX,AX
+  JNS o628b
+  NOT W[BP+020]
+  NEG W[BP+01e]
+  SBB W[BP+020],-1
+  MOV W[BP+010],1
+  JMP o628b
+o625a:
+  CMP W[BP+0e],0
+  JZ o6277
+  MOV SI,W[BP+03e]
+  MOV AX,W[SI]
+  ADD W[SI],4
+  MOV SI,AX
+  MOV BX,W[SI+2]
+  MOV CX,W[SI]
+  MOV W[BP+01e],CX
+  MOV W[BP+020],BX
+  JMP o628b
+o6277:
+  MOV SI,W[BP+03e]
+  MOV AX,W[SI]
+  ADD W[SI],2
+  MOV SI,AX
+  MOV BX,W[SI]
+  XOR AX,AX
+  MOV W[BP+020],AX
+  MOV W[BP+01e],BX
+o628b:
+  MOV W[BP+6],0b
+o629o:
+  MOV AX,W[BP+6]
+  DEC AX
+  MOV SI,AX
+  MOV W[BP+6],AX
+  MOV AX,W[BP+020]
+  MOV BX,W[BP+01e]
+  XOR CX,CX
+  MOV DX,0a
+  MOV W[BP],SI
+  CALL o5afb
+  ADD DX,030
+  ADC CX,0
+  MOV SI,W[BP]
+  MOV B[BP+SI+022],DL
+  MOV AX,W[BP+020]
+  MOV BX,W[BP+01e]
+  XOR CX,CX
+  MOV DX,0a
+  CALL o5afb
+  MOV W[BP+020],AX
+  MOV W[BP+01e],BX
+  MOV AX,W[BP+020]
+  OR AX,W[BP+01e]
+  JNZ o629o
+  CMP W[BP+010],1
+  JNZ o62e5
+  MOV AX,W[BP+6]
+  DEC AX
+  MOV SI,AX
+  MOV B[BP+SI+022],02d
+  MOV W[BP+6],AX
+o62e5:
+  LEA AX,W[BP+022]
+  MOV BX,W[BP+6]
+  ADD BX,AX
+  MOV AX,0b
+  SUB AX,W[BP+6]
+  MOV W[BP+0a],AX
+  MOV W[BP+01c],BX
+  JMP o64cd
+o62fc:
+  CMP W[BP+0e],0
+  JZ o6319
+  MOV SI,W[BP+03e]
+  MOV AX,W[SI]
+  ADD W[SI],4
+  MOV SI,AX
+  MOV BX,W[SI+2]
+  MOV CX,W[SI]
+  MOV W[BP+01e],CX
+  MOV W[BP+020],BX
+  JMP o632d
+o6319:
+  MOV SI,W[BP+03e]
+  MOV AX,W[SI]
+  ADD W[SI],2
+  MOV SI,AX
+  MOV BX,W[SI]
+  XOR AX,AX
+  MOV W[BP+020],AX
+  MOV W[BP+01e],BX
+o632d:
+  MOV W[BP+6],8
+o6332:
+  MOV AX,W[BP+6]
+  DEC AX
+  MOV SI,AX
+  MOV BX,W[BP+020]
+  MOV CX,W[BP+01e]
+  XOR BX,BX
+  AND CX,0f
+  MOV BX,CX
+  MOV CL,B[BX+p761e]
+  MOV B[BP+SI+022],CL
+  MOV CX,4
+  MOV BX,W[BP+020]
+  MOV DX,W[BP+01e]
+  JCXZ o635e
+o6358:
+  SAR BX,1
+  RCR DX,1
+  LOOP o6358
+o635e:
+  MOV W[BP+020],BX
+  AND BX,0fff
+  MOV W[BP+6],AX
+  MOV W[BP+01e],DX
+  MOV W[BP+020],BX
+  MOV AX,W[BP+020]
+  OR AX,W[BP+01e]
+  JNZ o6332
+  LEA AX,W[BP+022]
+  MOV BX,W[BP+6]
+  ADD BX,AX
+  MOV AX,8
+  SUB AX,W[BP+6]
+  MOV W[BP+0a],AX
+  MOV W[BP+01c],BX
+  JMP o64cd
+o638d:
+  CMP W[BP+0e],0
+  JZ o63aa
+  MOV SI,W[BP+03e]
+  MOV AX,W[SI]
+  ADD W[SI],4
+  MOV SI,AX
+  MOV BX,W[SI+2]
+  MOV CX,W[SI]
+  MOV W[BP+01e],CX
+  MOV W[BP+020],BX
+  JMP o63be
+o63aa:
+  MOV SI,W[BP+03e]
+  MOV AX,W[SI]
+  ADD W[SI],2
+  MOV SI,AX
+  MOV BX,W[SI]
+  XOR AX,AX
+  MOV W[BP+020],AX
+  MOV W[BP+01e],BX
+o63be:
+  MOV W[BP+6],0b
+o63c3:
+  MOV AX,W[BP+6]
+  DEC AX
+  MOV SI,AX
+  MOV BX,W[BP+020]
+  MOV CX,W[BP+01e]
+  XOR BX,BX
+  AND CX,7
+  ADD CX,030
+  ADC BX,0
+  MOV B[BP+SI+022],CL
+  MOV CX,3
+  MOV BX,W[BP+020]
+  MOV DX,W[BP+01e]
+  JCXZ o63ef
+o63e9:
+  SAR BX,1
+  RCR DX,1
+  LOOP o63e9
+o63ef:
+  MOV W[BP+020],BX
+  AND BX,01fff
+  MOV W[BP+6],AX
+  MOV W[BP+01e],DX
+  MOV W[BP+020],BX
+  MOV AX,W[BP+020]
+  OR AX,W[BP+01e]
+  JNZ o63c3
+  LEA AX,W[BP+022]
+  MOV BX,W[BP+6]
+  ADD BX,AX
+  MOV AX,0b
+  SUB AX,W[BP+6]
+  MOV W[BP+0a],AX
+  MOV W[BP+01c],BX
+  JMP o64cd
+o641e:
+  CMP W[BP+012],-1
+  JNZ o6429
+  MOV W[BP+012],0c8
+o6429:
+  MOV W[BP+0a],0
+o642e:
+  MOV AX,W[BP+0a]
+  CMP AX,W[BP+012]
+  JGE o644c
+  MOV DI,W[BP+03e]
+  MOV SI,W[DI]
+  MOV DI,W[SI]
+  ADD DI,AX
+  MOV AL,B[DI]
+  XOR AH,AH
+  TEST AX,AX
+  JZ o644c
+  INC W[BP+0a]
+  JMP o642e
+o644c:
+  MOV SI,W[BP+03e]
+  MOV AX,W[SI]
+  ADD W[SI],2
+  MOV SI,AX
+  MOV BX,W[SI]
+  MOV W[BP+01c],BX
+  JMP o64cd
+o645d:
+  LEA AX,W[BP+022]
+  MOV W[BP+0a],1
+  MOV SI,W[BP+03e]
+  MOV BX,W[SI]
+  ADD W[SI],2
+  MOV CX,W[BX]
+  MOV W[BP+01c],AX
+  MOV B[BP+022],CL
+  JMP o64cd
+o6477:
+  MOV W[BP+01a],2
+  JMP o64cd
+o647e:
+  MOV W[BP+01a],0
+  JMP o64cd
+o6485:
+  MOV W[BP+01a],1
+  JMP o64cd
+o648c:
+  XOR AX,AX
+  ADD SP,036
+  POP BP
+  RET
+
+o6493:
+  DW 066,offset o6485
+  DW 065,offset o647e
+  DW 067,offset o6477
+  DW 063,offset o645d
+  DW 073,offset o641e
+  DW 06f,offset o638d
+  DW 078,offset o62fc
+  DW 075,offset o625a
+  DW 064,offset o62oc
+
+o64b7:
+  MOV SI,020
+o64ba:
+  CS: CMP AX,W[SI+o6493]
+  JNZ o64c6
+  CS: JMP W[SI+o6493+2]
+o64c6:
+  SUB SI,4
+  JNS o64ba
+  JMP o648c
+o64cd:
+  CMP W[BP+01c],0
+  JNZ o64d6
+  JMP o6588
+o64d6:
+  MOV AX,W[BP+016]
+  TEST AX,AX
+  JZ o64e2
+  CMP AX,W[BP+0a]
+  JGE o64e8
+o64e2:
+  MOV AX,W[BP+0a]
+  MOV W[BP+016],AX
+o64e8:
+  MOV AX,W[BP+0a]
+  SUB W[BP+016],AX
+  MOV W[BP+6],0
+  CMP W[BP+0c],0
+  JZ o6538
+o64f9:
+  MOV AX,W[BP+0a]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+0a],AX
+  JS o651b
+  MOV AX,W[BP+6]
+  INC W[BP+6]
+  MOV SI,W[BP+03c]
+  ADD SI,AX
+  MOV DI,W[BP+01c]
+  INC W[BP+01c]
+  MOV AL,B[DI]
+  MOV B[SI],AL
+  JMP o64f9
+o651b:
+  MOV AX,W[BP+016]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+016],AX
+  JS o6577
+  MOV AX,W[BP+6]
+  INC W[BP+6]
+  MOV SI,W[BP+03c]
+  ADD SI,AX
+  MOV AX,W[BP+014]
+  MOV B[SI],AL
+  JMP o651b
+o6538:
+  MOV AX,W[BP+016]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+016],AX
+  JS o6555
+  MOV AX,W[BP+6]
+  INC W[BP+6]
+  MOV SI,W[BP+03c]
+  ADD SI,AX
+  MOV AX,W[BP+014]
+  MOV B[SI],AL
+  JMP o6538
+o6555:
+  MOV AX,W[BP+0a]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+0a],AX
+  JS o6577
+  MOV AX,W[BP+6]
+  INC W[BP+6]
+  MOV SI,W[BP+03c]
+  ADD SI,AX
+  MOV DI,W[BP+01c]
+  INC W[BP+01c]
+  MOV AL,B[DI]
+  MOV B[SI],AL
+  JMP o6555
+o6577:
+  MOV AX,W[BP+6]
+  MOV SI,W[BP+040]
+  MOV W[SI],AX
+  MOV AX,W[BP+03a]
+  INC AX
+  ADD SP,036
+  POP BP
+  RET
+o6588:
+  CMP W[BP+012],-1
+  JNZ o6593
+  MOV W[BP+012],6
+o6593:
+  CMP W[BP+012],014
+  JLE o659e
+  MOV W[BP+012],014
+o659e:
+  MOV AX,W[BP+012]
+  INC AX
+  LEA BX,W[BP+022]
+  PUSH BX
+  LEA BX,W[BP+010]
+  PUSH BX
+  LEA BX,W[BP+018]
+  PUSH BX
+  PUSH W[BP+01a]
+  PUSH AX
+  MOV BX,W[BP+03e]
+  PUSH W[BX]
+  CALL o6bd3
+  MOV SP,BP
+  MOV SI,W[BP+03e]
+  ADD W[SI],8
+  LEA BX,W[BP+022]
+  MOV CX,W[BP+018]
+  TEST CX,CX
+  MOV W[BP+0a],AX
+  MOV W[BP+6],CX
+  MOV W[BP+01c],BX
+  JNS o65d8
+  NEG W[BP+6]
+o65d8:
+  CMP W[BP+01a],2
+  JNZ o65ef
+  CMP W[BP+0a],0
+  JZ o65ea
+  CMP W[BP+6],6
+  JGE o65ef
+o65ea:
+  MOV W[BP+01a],0
+o65ef:
+  CMP W[BP+0a],0
+  JZ o65f8
+  DEC W[BP+018]
+o65f8:
+  XOR AX,AX
+  MOV W[BP+6],AX
+  CMP W[BP+010],0
+  JZ o66o6
+  INC W[BP+6]
+o66o6:
+  CMP W[BP+01a],0
+  JZ o662d
+  MOV AX,W[BP+012]
+  INC AX
+  MOV BX,W[BP+6]
+  ADD BX,AX
+  MOV AX,W[BP+018]
+  TEST AX,AX
+  MOV W[BP+6],BX
+  JS o6622
+  ADD W[BP+6],AX
+o6622:
+  CMP W[BP+012],0
+  JZ o6659
+  INC W[BP+6]
+  JMP o6659
+o662d:
+  MOV AX,W[BP+012]
+  ADD AX,6
+  ADD W[BP+6],AX
+  MOV AX,W[BP+018]
+  TEST AX,AX
+  JNS o6641
+  NEG AX
+  JMP o6644
+o6641:
+  MOV AX,W[BP+018]
+o6644:
+  CMP AX,063
+  MOV W[BP+8],AX
+  JLE o664f
+  INC W[BP+6]
+o664f:
+  CMP W[BP+8],03e7
+  JLE o6659
+  INC W[BP+6]
+o6659:
+  CMP W[BP+0c],0
+  JNZ o6688
+  MOV AX,W[BP+016]
+  CMP AX,W[BP+6]
+  JLE o6688
+  MOV BX,W[BP+6]
+  SUB W[BP+016],BX
+o666d:
+  MOV AX,W[BP+016]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+016],AX
+  JS o6688
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV AX,W[BP+014]
+  MOV B[SI],AL
+  INC W[BP+6]
+  JMP o666d
+o6688:
+  CMP W[BP+010],0
+  JZ o6697
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV B[SI],02d
+o6697:
+  CMP W[BP+01a],0
+  JNZ o66ao
+  JMP o6782
+o66ao:
+  MOV AX,W[BP+018]
+  TEST AX,AX
+  JNS o67ob
+  MOV SI,W[BP+03c]
+  MOV AX,SI
+  MOV W[BP],AX
+  INC AX
+  MOV B[SI],030
+  MOV SI,AX
+  MOV W[BP+03c],AX
+  INC AX
+  MOV B[SI],02e
+  MOV W[BP+03c],AX
+o66bf:
+  MOV AX,W[BP+012]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+012],AX
+  JNS o66cd
+  JMP o685c
+o66cd:
+  MOV AX,W[BP+018]
+  INC AX
+  TEST AX,AX
+  MOV W[BP+018],AX
+  JNS o66e3
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV B[SI],030
+  JMP o66bf
+o66e3:
+  MOV AX,W[BP+0a]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+0a],AX
+  JS o67oo
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV DI,W[BP+01c]
+  INC W[BP+01c]
+  MOV AL,B[DI]
+  MOV B[SI],AL
+  JMP o66bf
+o67oo:
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV B[SI],030
+  JMP o66bf
+o67ob:
+  MOV AX,W[BP+018]
+  DEC W[BP+018]
+  TEST AX,AX
+  JS o673d
+  MOV AX,W[BP+0a]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+0a],AX
+  JS o6732
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV DI,W[BP+01c]
+  INC W[BP+01c]
+  MOV AL,B[DI]
+  MOV B[SI],AL
+  JMP o67ob
+o6732:
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV B[SI],030
+  JMP o67ob
+o673d:
+  CMP W[BP+012],0
+  JZ o674c
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV B[SI],02e
+o674c:
+  MOV AX,W[BP+012]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+012],AX
+  JNS o675a
+  JMP o685c
+o675a:
+  MOV AX,W[BP+0a]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+0a],AX
+  JS o6777
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV DI,W[BP+01c]
+  INC W[BP+01c]
+  MOV AL,B[DI]
+  MOV B[SI],AL
+  JMP o674c
+o6777:
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV B[SI],030
+  JMP o674c
+o6782:
+  MOV AX,W[BP+0a]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+0a],AX
+  JS o679f
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV DI,W[BP+01c]
+  INC W[BP+01c]
+  MOV AL,B[DI]
+  MOV B[SI],AL
+  JMP o67a8
+o679f:
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV B[SI],030
+o67a8:
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV B[SI],02e
+o67b1:
+  MOV AX,W[BP+012]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+012],AX
+  JS o67e4
+  MOV AX,W[BP+0a]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+0a],AX
+  JS o67d9
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV DI,W[BP+01c]
+  INC W[BP+01c]
+  MOV AL,B[DI]
+  MOV B[SI],AL
+  JMP o67b1
+o67d9:
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV B[SI],030
+  JMP o67b1
+o67e4:
+  MOV SI,W[BP+03c]
+  MOV AX,SI
+  MOV W[BP],AX
+  INC AX
+  MOV B[SI],045
+  MOV BX,W[BP+018]
+  TEST BX,BX
+  MOV W[BP+03c],AX
+  JNS o68o7
+  MOV SI,AX
+  INC W[BP+03c]
+  MOV B[SI],02d
+  NEG W[BP+018]
+  JMP o681o
+o68o7:
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV B[SI],02b
+o681o:
+  MOV W[BP+0a],0b
+o6815:
+  MOV AX,W[BP+0a]
+  DEC AX
+  MOV SI,AX
+  MOV W[BP+0a],AX
+  MOV AX,W[BP+018]
+  MOV BX,0a
+  CWD
+  IDIV BX
+  ADD DX,030
+  MOV B[BP+SI+022],DL
+  MOV AX,W[BP+018]
+  CWD
+  IDIV BX
+  MOV W[BP+018],AX
+  CMP W[BP+0a],9
+  JG o6815
+  CMP W[BP+018],0
+  JNZ o6815
+o6842:
+  MOV AX,W[BP+0a]
+  CMP AX,0b
+  JGE o685c
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  INC W[BP+0a]
+  MOV DI,AX
+  MOV AL,B[BP+DI+022]
+  MOV B[SI],AL
+  JMP o6842
+o685c:
+  CMP W[BP+0c],1
+  JNZ o688b
+  MOV AX,W[BP+016]
+  CMP AX,W[BP+6]
+  JLE o688b
+  MOV BX,W[BP+6]
+  SUB W[BP+016],BX
+o687o:
+  MOV AX,W[BP+016]
+  DEC AX
+  TEST AX,AX
+  MOV W[BP+016],AX
+  JS o688b
+  MOV SI,W[BP+03c]
+  INC W[BP+03c]
+  MOV AX,W[BP+014]
+  MOV B[SI],AL
+  INC W[BP+6]
+  JMP o687o
+o688b:
+  MOV AX,W[BP+6]
+  MOV SI,W[BP+040]
+  MOV W[SI],AX
+  MOV AX,W[BP+03a]
+  INC AX
+  ADD SP,036
+  POP BP
+  RET
+
+o689c:
+  PUSH CX
+  MOV SI,AX
+  AND SI,07ff0
+  SHR SI,4
+  SUB SI,03ff
+  POP CX
+  MOV AH,AL
+  MOV AL,BH
+  MOV BH,BL
+  MOV BL,CH
+  MOV CH,CL
+  MOV CL,DH
+  MOV DH,DL
+  XOR DL,DL
+  MOV DI,3
+o68bf:
+  SHL DX,1
+  RCL CX,1
+  RCL BX,1
+  RCL AX,1
+  DEC DI
+  JNZ o68bf
+  OR AX,08000
+  RET
+
+o68ce:
+  AND DI,08000
+  PUSH DI
+  SUB SI,0b
+  TEST AX,AX
+  JNZ o69o9
+  SUB SI,010
+  MOV AX,BX
+  TEST AX,AX
+  JNZ o69o3
+  SUB SI,010
+  MOV AX,CX
+  TEST AX,AX
+  JNZ o68fb
+  SUB SI,010
+  MOV AX,DX
+  TEST AX,AX
+  JNZ o68f7
+  POP DI
+  RET
+o68f7:
+  XOR DX,DX
+  JMP o69o9
+o68fb:
+  MOV BX,DX
+  XOR CX,CX
+  XOR DX,DX
+  JMP o69o9
+o69o3:
+  MOV BX,CX
+  MOV CX,DX
+  XOR DX,DX
+o69o9:
+  TEST AX,0ffe0
+  JZ o6939
+o69oe:
+  INC SI
+  SHR AX,1
+  RCR BX,1
+  RCR CX,1
+  RCR DX,1
+  RCR DI,1
+  TEST AX,0ffe0
+  JNZ o69oe
+  TEST DI,DI
+  JNS o6939
+  ADD DX,1
+  ADC CX,0
+  ADC BX,0
+  ADC AX,0
+  JMP o69o9
+o693o:
+  DEC SI
+  SHL DX,1
+  RCL CX,1
+  RCL BX,1
+  RCL AX,1
+o6939:
+  TEST AX,010
+  JZ o693o
+  POP DI
+  ADD SI,03ff
+  JLE o6959
+  CMP SI,07ff
+  JGE o6965
+  PUSH CX
+  AND AX,0f
+  SHL SI,4
+  OR SI,DI
+  OR AX,SI
+  POP CX
+  RET
+o6959:
+  MOV AX,1
+  PUSH AX
+  CALL o61of
+  POP AX
+  XOR AX,AX
+  JMP o6972
+o6965:
+  MOV AX,2
+  PUSH AX
+  CALL o61of
+  POP AX
+  MOV AX,07ff0
+  OR AX,DI
+o6972:
+  XOR BX,BX
+  XOR CX,CX
+  XOR DX,DX
+  RET
+
+o6a3f:
+  PUSH BP
+  SUB SP,2
+  MOV BP,SP
+  MOV AX,W[BP+6]
+  AND AX,07f
+  PUSH AX
+  MOV AX,6
+  PUSH AX
+  CALL o6b15
+  MOV SP,BP
+  MOV AX,W[BP+6]
+  ADD SP,2
+  POP BP
+  RET
+
+o6b15:
+  PUSH BP
+  MOV BP,SP
+  MOV AX,W[BP+4]
+  MOV AH,AL
+  MOV DX,W[BP+6]
+  INT 021
+  XOR AH,AH
+  POP BP
+  RET
+
+o6b26:
+  MOV SI,040
+  XOR AX,AX
+  MOV BX,W[BP+4]
+  MOV CX,W[BP+6]
+  MOV DX,W[BP+8]
+  MOV DI,W[BP+0a]
+o6b37:
+  SHL DI,1
+  RCL DX,1
+  RCL CX,1
+  RCL BX,1
+  RCL AX,1
+  CMP AX,0a
+  JB o6b4a
+  SUB AX,0a
+  INC DI
+o6b4a:
+  DEC SI
+  JNZ o6b37
+  MOV W[BP+4],BX
+  MOV W[BP+6],CX
+  MOV W[BP+8],DX
+  MOV W[BP+0a],DI
+  RET
+
+o6b5a:
+  MOV AX,W[BP+0a]
+  SHL AX,1
+  MOV W[BP+0a],AX
+  MOV AX,W[BP+8]
+  RCL AX,1
+  MOV W[BP+8],AX
+  MOV AX,W[BP+6]
+  RCL AX,1
+  MOV W[BP+6],AX
+  MOV AX,W[BP+4]
+  RCL AX,1
+  MOV W[BP+4],AX
+  RET
+
+o6b7b:
+  MOV BX,AX
+  XOR CX,CX
+  SHL AX,1
+  RCL CX,1
+  SHL AX,1
+  RCL CX,1
+  ADD AX,BX
+  ADC CX,0
+  SHL AX,1
+  RCL CX,1
+  RET
+
+o6b91:
+  XOR CX,CX
+  MOV DI,6
+o6b96:
+  MOV AX,W[BP+DI+4]
+  MOV W[BP+DI+4],CX
+  CALL o6b7b
+  MOV BX,W[BP+DI+4]
+  ADD AX,BX
+  ADC CX,0
+  MOV W[BP+DI+4],AX
+  DEC DI
+  DEC DI
+  JNS o6b96
+  RET
+
+o6baf:
+  MOV AX,W[BP+4]
+  MOV BX,W[BP+6]
+  MOV CX,W[BP+8]
+  MOV DX,W[BP+0a]
+o6bbb:
+  SHR AX,1
+  RCR BX,1
+  RCR CX,1
+  RCR DX,1
+  DEC SI
+  JNZ o6bbb
+  MOV W[BP+4],AX
+  MOV W[BP+6],BX
+  MOV W[BP+8],CX
+  MOV W[BP+0a],DX
+  RET
+
+o6bd3:
+  PUSH BP
+  SUB SP,028
+  MOV BP,SP
+  MOV W[BP],0
+  MOV W[BP+0c],0
+  MOV SI,W[BP+02c]
+  MOV AX,W[SI+6]
+  TEST AX,AX
+  JNS o6bf2
+  OR W[BP],08000
+o6bf2:
+  AND AX,07fff
+  JNZ o6co7
+  MOV DI,AX
+  OR DI,W[SI+4]
+  JNZ o6co7
+  OR DI,W[SI+2]
+  JNZ o6co7
+  OR DI,W[SI]
+  JZ o6c83
+o6co7:
+  SHR AX,4
+  SUB AX,03fe
+  MOV W[BP+0e],AX
+  MOV CX,W[SI]
+  MOV BX,W[SI+2]
+  MOV AX,W[SI+4]
+  MOV SI,W[SI+6]
+  XOR DX,DX
+  MOV DI,5
+o6c21:
+  SHR SI,1
+  RCR AX,1
+  RCR BX,1
+  RCR CX,1
+  RCR DX,1
+  DEC DI
+  JNZ o6c21
+  OR AX,08000
+  MOV W[BP+4],AX
+  MOV W[BP+6],BX
+  MOV W[BP+8],CX
+  MOV W[BP+0a],DX
+  MOV W[BP+0c],0
+o6c42:
+  MOV SI,W[BP+0e]
+  MOV CX,SI
+  TEST SI,SI
+  JZ o6cb4
+  JNS o6c5d
+  ADD SI,3
+  JS o6c65
+  MOV SI,1
+  CALL o6baf
+  INC W[BP+0e]
+  JMP o6c42
+o6c5d:
+  CALL o6b26
+  INC W[BP+0c]
+  JMP o6c74
+o6c65:
+  MOV SI,4
+  ADD W[BP+0e],SI
+  CALL o6baf
+  CALL o6b91
+  DEC W[BP+0c]
+o6c74:
+  TEST W[BP+4],08000
+  JNZ o6c42
+  DEC W[BP+0e]
+  CALL o6b5a
+  JMP o6c74
+o6c83:
+  XOR SI,SI
+  OR W[BP],04000
+o6c8a:
+  XOR CX,CX
+  TEST W[BP],04000
+  JNZ o6cb4
+  MOV AX,W[BP+4]
+  OR AX,W[BP+6]
+  JNZ o6ca3
+  MOV AX,W[BP+8]
+  OR AX,W[BP+0a]
+  JZ o6cb4
+o6ca3:
+  CALL o6b91
+  TEST CX,CX
+  JNZ o6cb4
+  CMP SI,1
+  JNZ o6cb4
+  DEC W[BP+0c]
+  JMP o6ca3
+o6cb4:
+  ADD CL,030
+  MOV B[BP+SI+014],CL
+  INC SI
+  CMP SI,014
+  JL o6c8a
+  MOV W[BP+010],1
+  MOV AX,W[BP+030]
+  MOV SI,W[BP+02e]
+  TEST AX,AX
+  JZ o6cda
+  MOV CX,1
+  MOV AX,W[BP+0c]
+  DEC AX
+  ADD SI,AX
+  JS o6do7
+o6cda:
+  MOV CX,014
+  CMP SI,012
+  JGE o6do7
+  MOV CX,SI
+  MOV AL,B[BP+SI+015]
+  ADD AL,5
+o6ce9:
+  CMP AL,03a
+  JL o6do7
+  MOV B[BP+SI+015],030
+  INC B[BP+SI+014]
+  MOV AL,B[BP+SI+014]
+  DEC SI
+  JNS o6ce9
+  INC W[BP+0c]
+  DEC W[BP+010]
+  CMP W[BP+030],0
+  JZ o6do7
+  INC CX
+o6do7:
+  MOV DI,W[BP+036]
+  MOV SI,W[BP+010]
+  XOR BX,BX
+o6dof:
+  MOV AL,B[BP+SI+014]
+  MOV B[DI],AL
+  INC BX
+  INC DI
+  CMP BX,CX
+  JGE o6d2b
+  INC SI
+  CMP SI,014
+  JL o6dof
+  MOV AL,030
+o6d22:
+  MOV B[DI],AL
+  INC DI
+  INC BX
+  CMP BX,W[BP+02e]
+  JL o6d22
+o6d2b:
+  XOR AX,AX
+  TEST W[BP],08000
+  JZ o6d3c
+  TEST W[BP],04000
+  JNZ o6d3c
+  DEC AX
+o6d3c:
+  MOV SI,W[BP+034]
+  MOV W[SI],AX
+  MOV AX,W[BP+0c]
+  MOV SI,W[BP+032]
+  MOV W[SI],AX
+  TEST W[BP],04000
+  JZ o6d52
+  XOR CX,CX
+o6d52:
+  MOV AX,CX
+  ADD SP,028
+  POP BP
+  RET
+
+  DB "Copyright(c) 1983 Windmill Software Inc."
+codeend:
