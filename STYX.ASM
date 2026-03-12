@@ -741,13 +741,6 @@ o543:      ;Set up PC1 hidden 160x200x16 mode
   PUSH BP
   MOV BP,SP
   ;--- Enable hidden graphics mode on V6355D ---
-  ; Set monitor control register 0x65 for 200-line PAL color
-  MOV AL,0x65
-  OUT 0xdd,AL
-  JMP SHORT $+2
-  MOV AL,0x9             ;200 lines, PAL, color
-  OUT 0xde,AL
-  JMP SHORT $+2
   ; Unlock 16-color mode via mode control port
   MOV AL,0x4a            ;Graphics mode, video ON
   OUT 0xd8,AL
@@ -770,7 +763,7 @@ o543:      ;Set up PC1 hidden 160x200x16 mode
 ;--- PC1 palette programming routines ---
 pc1_set_cga_palette:
   ; Always write CGA palette to hardware.
-  ; BMP palette is set explicitly via set_bmp_game_palette when entering gameplay.
+  ; Reads palette from code segment to avoid DS dependency.
   PUSH AX
   PUSH CX
   PUSH SI
@@ -778,10 +771,10 @@ pc1_set_cga_palette:
   MOV AL,0x40             ;Open palette for writing
   OUT 0xdd,AL
   JMP SHORT $+2
-  MOV SI,pc1_cga_colors
+  MOV SI,cs_cga_colors
   MOV CX,0x20            ;32 bytes (16 colors x 2)
 pc1_pal_loop:
-  MOV AL,byte [SI]
+  MOV AL,byte [cs:SI]     ;Read from code segment
   OUT 0xde,AL             ;Write palette byte
   JMP SHORT $+2
   INC SI
@@ -793,6 +786,25 @@ pc1_pal_loop:
   POP CX
   POP AX
   RET
+
+;--- CGA palette in code segment (DS-independent) ---
+cs_cga_colors:
+  DB 0x0,0x0    ;0:  Black
+  DB 0x0,0x5    ;1:  Blue
+  DB 0x0,0x50   ;2:  Green
+  DB 0x0,0x55   ;3:  Cyan
+  DB 0x5,0x0    ;4:  Red
+  DB 0x5,0x5    ;5:  Magenta
+  DB 0x5,0x20   ;6:  Brown
+  DB 0x5,0x55   ;7:  Light Gray
+  DB 0x2,0x22   ;8:  Dark Gray
+  DB 0x2,0x27   ;9:  Light Blue
+  DB 0x2,0x72   ;10: Light Green
+  DB 0x2,0x77   ;11: Light Cyan
+  DB 0x7,0x22   ;12: Light Red
+  DB 0x7,0x27   ;13: Light Magenta
+  DB 0x7,0x70   ;14: Yellow
+  DB 0x7,0x77   ;15: White
 
 ;--- PC1 hidden mode disable (for exit) ---
 pc1_disable_mode:
@@ -2153,10 +2165,9 @@ ofbe:
   MOV AL,byte [cs:vgasave]
   MOV byte [0x89],AL
   POP DS
+  CALL pc1_set_cga_palette  ;Restore CGA palette while DS is valid and hidden mode active
   CALL restoreint8
   CALL restoreint9
-  CALL pc1_set_cga_palette  ;Restore CGA palette before exit
-  CALL pc1_disable_mode   ;Reset V6355D to text mode
   MOV AX,3
   INT 0x10
   MOV AX,0x4c00
@@ -6737,6 +6748,7 @@ o3a65:
   PUSH AX
   CALL o4feb
   MOV SP,BP
+  CALL pc1_set_cga_palette  ;Reset to CGA palette for score screen
   CALL o5c3
   CALL o3fb8
   CALL o415b
@@ -9022,6 +9034,7 @@ o578o:
   JMP o578o
 o57ao:
   MOV word [pcb],1
+  CALL pc1_set_cga_palette  ;Reset to CGA palette for start screen
   CALL o57b5
   CALL o5c3
   JMP o56dd
