@@ -1,6 +1,8 @@
-; Styx Remastered - NASM conversion
+; Styx Remastered - NASM conversion for Olivetti Prodest PC1
+; Copyright (c) Windmill Software in 1983
 ; Copyright (c) Andrew Jenner 1998-2004
-; Converted from A86 to NASM syntax
+; Converted from A86 to NASM syntax by Retro Erik, 2026
+; Ported to Olivetti Prodest PC1 by Retro Erik, 2026
 
 bits 16
 cpu 186                     ; NEC V40 supports 80186 instructions
@@ -767,6 +769,8 @@ o543:      ;Set up PC1 hidden 160x200x16 mode
 
 ;--- PC1 palette programming routines ---
 pc1_set_cga_palette:
+  ; Always write CGA palette to hardware.
+  ; BMP palette is set explicitly via set_bmp_game_palette when entering gameplay.
   PUSH AX
   PUSH CX
   PUSH SI
@@ -832,22 +836,108 @@ chartable:
   DB 0,254,24,24,48,24,12,24,14,27,24,24,0,24,0,118,56,108,0,0
   DB 0,0,15,12,108,54,120,12,0,0,0,0
 
-o5c3:         ;Redraw screen (PC1 hidden mode — double-draw)
+o5c3:         ;Redraw screen (PC1 hidden mode — with BMP background reveal)
   PUSH BP
   MOV BP,SP
   PUSH ES
   MOV AX,0xb000
   MOV ES,AX
-  ; Copy shadow → even bank (0000-1F3F) using REP MOVSW
+
+  ; If no BMP loaded, use fast original code path
+  CMP byte [bmp_loaded],0
+  JNZ .bmp_reveal
+
+  ; --- Fast path: no BMP loaded, original double-draw ---
   MOV SI,p12e
   XOR DI,DI
   MOV CX,4000
   REP MOVSW
-  ; Copy shadow → odd bank (2000-3F3F) using REP MOVSW
   MOV SI,p12e
   MOV DI,0x2000
   MOV CX,4000
   REP MOVSW
+  JMP .o5c3_done
+
+.bmp_reveal:
+  ; --- BMP reveal path ---
+  ; For each shadow byte, check both nibbles. If a nibble's color
+  ; is in the range 1-6 (territory colors), substitute the
+  ; corresponding BMP background pixel to reveal the image.
+  ;
+  ; Territory colors: 1 (blue round), 2 (green round), 4 (red round)
+  ; Colors 0,7,8,12,15 are game elements and never revealed.
+  ;
+  ; DS = data segment, ES = B000h (VRAM)
+
+  ; === Even bank: shadow → B000:0000, substitute from bmp_background ===
+  MOV SI,p12e
+  MOV BX,bmp_background
+  XOR DI,DI
+  MOV CX,8000
+.even_loop:
+  LODSB                  ;AL = shadow byte from DS:SI
+  ; --- Check high nibble: is it territory (color 1-6)? ---
+  MOV AH,AL
+  AND AH,0xF0
+  CMP AH,0x10            ;high nib >= 1?
+  JB .keep_hi_e
+  CMP AH,0x60            ;high nib <= 6?
+  JA .keep_hi_e
+  ; Reveal: replace high nibble with BMP pixel
+  MOV AH,byte [BX]
+  AND AH,0xF0
+  AND AL,0x0F
+  OR AL,AH
+.keep_hi_e:
+  ; --- Check low nibble: is it territory (color 1-6)? ---
+  MOV AH,AL
+  AND AH,0x0F
+  DEC AH                 ;color-1; colors 1-6 become 0-5
+  CMP AH,6
+  JAE .keep_lo_e
+  ; Reveal: replace low nibble with BMP pixel
+  AND AL,0xF0
+  MOV AH,byte [BX]
+  AND AH,0x0F
+  OR AL,AH
+.keep_lo_e:
+  STOSB                  ;Write to ES:DI (VRAM even bank)
+  INC BX
+  LOOP .even_loop
+
+  ; === Odd bank: shadow → B000:2000, substitute from bmp_background+8000 ===
+  MOV SI,p12e
+  MOV BX,bmp_background+8000
+  MOV DI,0x2000
+  MOV CX,8000
+.odd_loop:
+  LODSB
+  MOV AH,AL
+  AND AH,0xF0
+  CMP AH,0x10
+  JB .keep_hi_o
+  CMP AH,0x60
+  JA .keep_hi_o
+  MOV AH,byte [BX]
+  AND AH,0xF0
+  AND AL,0x0F
+  OR AL,AH
+.keep_hi_o:
+  MOV AH,AL
+  AND AH,0x0F
+  DEC AH
+  CMP AH,6
+  JAE .keep_lo_o
+  AND AL,0xF0
+  MOV AH,byte [BX]
+  AND AH,0x0F
+  OR AL,AH
+.keep_lo_o:
+  STOSB
+  INC BX
+  LOOP .odd_loop
+
+.o5c3_done:
   POP ES
   POP BP
   RET
@@ -1291,6 +1381,12 @@ o9f4:
   TEST AL,1
   JZ o9f4
 o9f9:
+  CMP byte [ES:bmp_loaded],0
+  JZ .o9_no_bmp
+  MOV AH,CH
+  CALL bmp_vram_write       ;Write BMP-substituted value to even+odd VRAM
+  JMP o9fb
+.o9_no_bmp:
   MOV byte [DI],CH          ;Write even row (bank 0)
   PUSH DI
   ADD DI,0x2000
@@ -1299,7 +1395,7 @@ o9f9:
 o9fb:
   PUSH DI
   ADD DI,p12e
-  MOV byte [es:DI],CH      ;Write shadow buffer
+  MOV byte [es:DI],CH      ;Write shadow buffer (always game state)
   POP DI
   RET
 oao7:
@@ -1397,6 +1493,11 @@ oaa3:
   TEST AL,1
   JZ oaa3
 oaa8:
+  CMP byte [ES:bmp_loaded],0
+  JZ .oa_no_bmp
+  CALL bmp_vram_write       ;Write BMP-substituted value to even+odd VRAM
+  JMP oaaa
+.oa_no_bmp:
   MOV byte [DI],AH          ;Write even row (bank 0)
   PUSH DI
   ADD DI,0x2000           ;Odd row bank
@@ -1405,8 +1506,82 @@ oaa8:
 oaaa:
   PUSH DI
   ADD DI,p12e
-  MOV byte [es:DI],AH      ;Write shadow buffer
+  MOV byte [es:DI],AH      ;Write shadow buffer (always game state)
   POP DI
+  RET
+
+;============================================================================
+; bmp_vram_write — Write game-state byte to VRAM with BMP substitution
+; For each nibble: if territory color (1-6), substitute BMP background pixel.
+; Input:  AH = game state byte (two nibbles)
+;         DI = VRAM offset (0-7999), DS = B000h, ES = data segment
+; Output: Even VRAM bank at DS:DI, odd bank at DS:DI+2000h
+; Preserves: AH, DI, BX, BP
+;============================================================================
+bmp_vram_write:
+  PUSH SI
+  PUSH CX
+  ; === Even bank ===
+  MOV SI,DI
+  ADD SI,bmp_background     ;SI = bmp_background + DI (even bank pixel)
+  MOV CL,byte [ES:SI]      ;CL = BMP even bank byte
+  MOV AL,AH                 ;AL = working copy of game byte
+  ; Check high nibble: territory color 1-6?
+  MOV CH,AL
+  SHR CH,4                  ;CH = high nibble value (0-15)
+  DEC CH                    ;colors 1-6 → 0-5
+  CMP CH,6
+  JAE .he_keep
+  AND AL,0x0F               ;clear game high nibble
+  MOV CH,CL
+  AND CH,0xF0               ;BMP high nibble
+  OR AL,CH
+.he_keep:
+  ; Check low nibble: territory color 1-6?
+  MOV CH,AL
+  AND CH,0x0F
+  DEC CH
+  CMP CH,6
+  JAE .le_keep
+  AND AL,0xF0               ;clear game low nibble
+  MOV CH,CL
+  AND CH,0x0F               ;BMP low nibble
+  OR AL,CH
+.le_keep:
+  MOV byte [DI],AL          ;Write even bank VRAM
+
+  ; === Odd bank ===
+  ADD SI,8000               ;SI = bmp_background + 8000 + DI (odd bank pixel)
+  MOV CL,byte [ES:SI]      ;CL = BMP odd bank byte
+  MOV AL,AH                 ;reload game byte
+  ; Check high nibble
+  MOV CH,AL
+  SHR CH,4
+  DEC CH
+  CMP CH,6
+  JAE .ho_keep
+  AND AL,0x0F
+  MOV CH,CL
+  AND CH,0xF0
+  OR AL,CH
+.ho_keep:
+  ; Check low nibble
+  MOV CH,AL
+  AND CH,0x0F
+  DEC CH
+  CMP CH,6
+  JAE .lo_keep
+  AND AL,0xF0
+  MOV CH,CL
+  AND CH,0x0F
+  OR AL,CH
+.lo_keep:
+  PUSH DI
+  ADD DI,0x2000
+  MOV byte [DI],AL          ;Write odd bank VRAM
+  POP DI
+  POP CX
+  POP SI
   RET
 
 oab6:
@@ -1980,6 +2155,7 @@ ofbe:
   POP DS
   CALL restoreint8
   CALL restoreint9
+  CALL pc1_set_cga_palette  ;Restore CGA palette before exit
   CALL pc1_disable_mode   ;Reset V6355D to text mode
   MOV AX,3
   INT 0x10
@@ -8657,6 +8833,8 @@ o55do:
   MOV word [pcb],0
   MOV AX,6
   PUSH AX
+  ; Load BMP background image (before entering graphics mode)
+  CALL load_bmp_background
   CALL o543
   MOV SP,BP
   XOR AX,AX
@@ -8766,6 +8944,11 @@ o55do:
   MOV byte [pc3],0
   CALL o57b5
   MOV word [pcb],1
+  ; Activate BMP palette for gameplay (if BMP was loaded)
+  CMP byte [bmp_loaded],0
+  JZ .no_bmp_pal
+  CALL set_bmp_game_palette
+.no_bmp_pal:
   CALL o5c3
 o56dd:
   CMP word [p74d2],0
@@ -11065,6 +11248,459 @@ o6d52:
   RET
 
   DB "Copyright(c) 1983 Windmill Software Inc."
+
+;============================================================================
+; BMP Background Image Loader
+; Loads STYX.BMP (320x200 or 160x200, 4-bit uncompressed) and decodes it
+; into bmp_background buffer in CGA-interlaced layout for background reveal.
+; If the file is missing or invalid, bmp_loaded stays 0 and the game
+; continues with normal solid-color territory display.
+;============================================================================
+load_bmp_background:
+  PUSH BP
+  MOV BP,SP
+  PUSH SI
+  PUSH DI
+
+  MOV byte [bmp_loaded],0
+
+  ; Open STYX.BMP (read-only)
+  MOV DX,bmp_filename
+  MOV AX,0x3D00
+  INT 0x21
+  JC .bmp_fail
+  MOV word [bmp_file_handle],AX
+
+  ; Read 118 bytes: file header (14) + info header (40) + palette (64)
+  MOV BX,AX
+  MOV DX,bmp_hdr
+  MOV CX,118
+  MOV AH,0x3F
+  INT 0x21
+  JC .bmp_close
+  CMP AX,118
+  JB .bmp_close
+
+  ; Validate BMP signature 'BM'
+  CMP word [bmp_hdr],0x4D42
+  JNE .bmp_close
+
+  ; Must be 4-bit uncompressed
+  CMP word [bmp_hdr+28],4
+  JNE .bmp_close
+  CMP word [bmp_hdr+30],0
+  JNE .bmp_close
+
+  ; Seek to pixel data offset
+  MOV BX,word [bmp_file_handle]
+  MOV DX,word [bmp_hdr+10]
+  MOV CX,word [bmp_hdr+12]
+  MOV AX,0x4200
+  INT 0x21
+  JC .bmp_close
+
+  ; Determine width and downsampling
+  MOV AX,word [bmp_hdr+18]
+  MOV word [bmp_img_width],AX
+  MOV byte [bmp_downsample],0
+  CMP AX,160
+  JBE .bmp_wok
+  MOV byte [bmp_downsample],1
+.bmp_wok:
+
+  ; Get height (use absolute value)
+  MOV AX,word [bmp_hdr+22]
+  TEST AX,AX
+  JNS .bmp_hpos
+  NEG AX
+.bmp_hpos:
+  CMP AX,200
+  JBE .bmp_hok
+  MOV AX,200
+.bmp_hok:
+  MOV word [bmp_img_height],AX
+
+  ; Calculate bytes per row in BMP file (with 4-byte padding)
+  MOV AX,word [bmp_img_width]
+  INC AX
+  SHR AX,1
+  ADD AX,3
+  AND AX,0xFFFC
+  MOV word [bmp_bytes_per_row],AX
+
+  ; Convert BMP palette to V6355 format
+  CALL convert_bmp_palette
+
+  ; Decode pixel data: BMP is bottom-up, decode to CGA-interlaced layout
+  MOV AX,word [bmp_img_height]
+  DEC AX
+  MOV word [bmp_cur_row],AX
+
+.bmp_rowloop:
+  ; Read one BMP row
+  MOV BX,word [bmp_file_handle]
+  MOV DX,bmp_row_buf
+  MOV CX,word [bmp_bytes_per_row]
+  MOV AH,0x3F
+  INT 0x21
+  JC .bmp_decodedone
+  OR AX,AX
+  JZ .bmp_decodedone
+
+  ; Calculate destination offset in bmp_background
+  ; Even rows: (row/2)*80          Odd rows: (row/2)*80 + 8000
+  MOV AX,word [bmp_cur_row]
+  PUSH AX
+  SHR AX,1
+  MOV BX,80
+  MUL BX
+  MOV DI,AX
+  POP AX
+  TEST AL,1
+  JZ .bmp_iseven
+  ADD DI,8000
+.bmp_iseven:
+  ADD DI,bmp_background
+
+  ; Downsample or direct copy
+  CMP byte [bmp_downsample],0
+  JE .bmp_directcopy
+
+  ; --- Downsample 320 -> 160 ---
+  ; Take pixels 0,2 from each pair of input bytes
+  MOV SI,bmp_row_buf
+  MOV CX,80
+.bmp_dsloop:
+  LODSB
+  AND AL,0xF0
+  MOV AH,AL
+  LODSB
+  SHR AL,4
+  OR AL,AH
+  MOV byte [DI],AL
+  INC DI
+  LOOP .bmp_dsloop
+  JMP .bmp_rowdone
+
+.bmp_directcopy:
+  MOV SI,bmp_row_buf
+  MOV CX,80
+.bmp_cploop:
+  LODSB
+  MOV byte [DI],AL
+  INC DI
+  LOOP .bmp_cploop
+
+.bmp_rowdone:
+  MOV AX,word [bmp_cur_row]
+  OR AX,AX
+  JZ .bmp_decodedone
+  DEC AX
+  MOV word [bmp_cur_row],AX
+  JMP .bmp_rowloop
+
+.bmp_decodedone:
+  ; Rearrange palette so game-critical indices get proper colors,
+  ; then remap background pixels to match the new index assignments.
+  CALL rearrange_palette_for_game
+  MOV byte [bmp_loaded],1
+
+.bmp_close:
+  MOV BX,word [bmp_file_handle]
+  OR BX,BX
+  JZ .bmp_fail
+  MOV AH,0x3E
+  INT 0x21
+
+.bmp_fail:
+  POP DI
+  POP SI
+  POP BP
+  RET
+
+;============================================================================
+; Convert BMP BGRA palette (at bmp_hdr+54) to V6355 format (bmp_palette)
+;
+; V6355 palette format: 2 bytes per color
+;   Byte 1: Red (bits 0-2, range 0-7)
+;   Byte 2: Green (bits 4-6) | Blue (bits 0-2)
+;
+; All 16 BMP colors are loaded as-is.  After loading, the separate
+; rearrange_palette_for_game routine swaps entries so that the
+; game's hardcoded color indices (0,7,12,15) get visually
+; appropriate colors chosen by brightness analysis.
+;============================================================================
+convert_bmp_palette:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH SI
+  PUSH DI
+
+  MOV SI,bmp_hdr+54
+  MOV DI,bmp_palette
+  MOV CX,16
+
+.cvt_loop:
+  LODSB
+  MOV BL,AL
+  LODSB
+  MOV BH,AL
+  LODSB
+  SHR AL,5
+  MOV byte [DI],AL
+  INC DI
+  MOV AL,BH
+  AND AL,0xE0
+  SHR AL,1
+  MOV AH,AL
+  MOV AL,BL
+  SHR AL,5
+  OR AL,AH
+  MOV byte [DI],AL
+  INC DI
+  LODSB
+  LOOP .cvt_loop
+
+  ; BMP palette loaded as-is — rearrange_palette_for_game will
+  ; swap entries to put appropriate colors at game-critical indices.
+
+  POP DI
+  POP SI
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; Set V6355 palette from BMP data (bmp_palette, 32 bytes)
+;============================================================================
+set_bmp_game_palette:
+  PUSH AX
+  PUSH CX
+  PUSH SI
+
+  CLI
+  MOV AL,0x40
+  OUT 0xDD,AL
+  JMP SHORT $+2
+
+  MOV SI,bmp_palette
+  MOV CX,32
+.bmp_pal_write:
+  LODSB
+  OUT 0xDE,AL
+  JMP SHORT $+2
+  LOOP .bmp_pal_write
+
+  MOV AL,0x80
+  OUT 0xDD,AL
+  STI
+
+  POP SI
+  POP CX
+  POP AX
+  RET
+
+;============================================================================
+; rearrange_palette_for_game
+; Analyzes brightness of all 16 BMP palette entries and rearranges them
+; so that the game's hardcoded color indices get visually appropriate colors:
+;   Index 0  = darkest   (game background / empty area)
+;   Index 15 = brightest  (text / UI)
+;   Index 7  = 2nd bright (border lines / unclaimed area)
+;   Index 12 = 3rd bright (ball trails)
+; All 16 original BMP colors are preserved by swapping indices.
+; After palette rearrangement, remaps all pixel data in bmp_background.
+; Brightness = R + G + B  (each 0-7, total range 0-21)
+;============================================================================
+rearrange_palette_for_game:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH DX
+  PUSH SI
+  PUSH DI
+
+  ; --- Step 1: compute brightness for each palette entry ---
+  ;     and initialize identity remap: pal_remap[i] = i
+  XOR BX,BX
+.pal_calc:
+  MOV byte [pal_remap+BX],BL
+  MOV SI,BX
+  SHL SI,1
+  MOV AL,byte [bmp_palette+SI]       ;R (0-7)
+  MOV AH,byte [bmp_palette+SI+1]
+  MOV DL,AH
+  SHR DL,4                           ;G (0-7)
+  AND AH,0x07                        ;B (0-7)
+  ADD AL,DL
+  ADD AL,AH                          ;brightness = R+G+B (0-21)
+  MOV byte [pal_brightness+BX],AL
+  INC BX
+  CMP BX,16
+  JB .pal_calc
+
+  ; --- Step 2: find darkest (min brightness) → swap to position 0 ---
+  XOR BX,BX                          ;BX = best position
+  MOV AL,byte [pal_brightness]       ;AL = best (min) brightness
+  MOV SI,1
+.dark_scan:
+  CMP SI,16
+  JGE .dark_found
+  CMP byte [pal_brightness+SI],AL
+  JGE .dark_skip
+  MOV AL,byte [pal_brightness+SI]
+  MOV BX,SI
+.dark_skip:
+  INC SI
+  JMP .dark_scan
+.dark_found:
+  OR BX,BX
+  JZ .dark_ok
+  XOR DI,DI                          ;swap pos 0 ↔ BX
+  CALL .swap_pal
+.dark_ok:
+
+  ; --- Step 3: find brightest (max) in positions 1-15 → swap to 15 ---
+  MOV BX,1
+  MOV AL,byte [pal_brightness+1]
+  MOV SI,2
+.bright_scan:
+  CMP SI,16
+  JGE .bright_found
+  CMP byte [pal_brightness+SI],AL
+  JLE .bright_skip
+  MOV AL,byte [pal_brightness+SI]
+  MOV BX,SI
+.bright_skip:
+  INC SI
+  JMP .bright_scan
+.bright_found:
+  CMP BX,15
+  JE .bright_ok
+  MOV DI,15
+  CALL .swap_pal
+.bright_ok:
+
+  ; --- Step 4: find 2nd brightest in positions 1-14 → swap to 7 ---
+  MOV BX,1
+  MOV AL,byte [pal_brightness+1]
+  MOV SI,2
+.second_scan:
+  CMP SI,15                          ;stop before position 15
+  JGE .second_found
+  CMP byte [pal_brightness+SI],AL
+  JLE .second_skip
+  MOV AL,byte [pal_brightness+SI]
+  MOV BX,SI
+.second_skip:
+  INC SI
+  JMP .second_scan
+.second_found:
+  CMP BX,7
+  JE .second_ok
+  MOV DI,7
+  CALL .swap_pal
+.second_ok:
+
+  ; --- Step 5: find 3rd brightest in positions 1-14 (skip 7) → swap to 12 ---
+  MOV BX,1
+  MOV AL,byte [pal_brightness+1]
+  MOV SI,2
+.third_scan:
+  CMP SI,15                          ;stop before position 15
+  JGE .third_found
+  CMP SI,7                           ;skip position 7
+  JE .third_skip
+  CMP byte [pal_brightness+SI],AL
+  JLE .third_skip
+  MOV AL,byte [pal_brightness+SI]
+  MOV BX,SI
+.third_skip:
+  INC SI
+  JMP .third_scan
+.third_found:
+  CMP BX,12
+  JE .third_ok
+  MOV DI,12
+  CALL .swap_pal
+.third_ok:
+
+  ; --- Step 6: build inverse remap table ---
+  ; pal_remap[new_pos] = old_original_index  (built during swaps)
+  ; pal_inv_remap[old_index] = new_position  (needed for pixel remap)
+  XOR BX,BX
+.inv_build:
+  MOV AL,byte [pal_remap+BX]
+  XOR AH,AH
+  MOV SI,AX
+  MOV byte [pal_inv_remap+SI],BL
+  INC BX
+  CMP BX,16
+  JB .inv_build
+
+  ; --- Step 7: remap all pixels in bmp_background ---
+  ; For each byte, remap both nibbles using pal_inv_remap
+  MOV SI,bmp_background
+  MOV CX,16000
+.remap_px:
+  MOV AL,byte [SI]
+  ; Remap high nibble
+  MOV AH,AL
+  SHR AH,4
+  XOR BH,BH
+  MOV BL,AH
+  MOV AH,byte [pal_inv_remap+BX]
+  SHL AH,4
+  ; Remap low nibble
+  AND AL,0x0F
+  MOV BL,AL
+  MOV AL,byte [pal_inv_remap+BX]
+  OR AL,AH
+  MOV byte [SI],AL
+  INC SI
+  LOOP .remap_px
+
+  POP DI
+  POP SI
+  POP DX
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+; --- Swap palette positions DI and BX ---
+; Updates pal_brightness, pal_remap, and bmp_palette (2 bytes per entry)
+.swap_pal:
+  PUSH AX
+  PUSH DX
+  PUSH SI
+  ; Swap brightness[DI] ↔ brightness[BX]
+  MOV AL,byte [pal_brightness+DI]
+  MOV AH,byte [pal_brightness+BX]
+  MOV byte [pal_brightness+DI],AH
+  MOV byte [pal_brightness+BX],AL
+  ; Swap remap[DI] ↔ remap[BX]
+  MOV AL,byte [pal_remap+DI]
+  MOV AH,byte [pal_remap+BX]
+  MOV byte [pal_remap+DI],AH
+  MOV byte [pal_remap+BX],AL
+  ; Swap palette[DI*2..+1] ↔ palette[BX*2..+1]
+  MOV SI,DI
+  SHL SI,1
+  PUSH BX
+  SHL BX,1
+  MOV AX,word [bmp_palette+SI]
+  MOV DX,word [bmp_palette+BX]
+  MOV word [bmp_palette+SI],DX
+  MOV word [bmp_palette+BX],AX
+  POP BX
+  POP SI
+  POP DX
+  POP AX
+  RET
+
 codeend:
 
 section .data vstart=0 align=16 follows=.text
@@ -12327,4 +12963,28 @@ p763o:
   DB 0,5,7,0,255,255,240,0,15,0,0,15,0,15,0,0
   DB 15,0,15,0,0,15,0,15,0,15,15,0,15,0,0,255
   DB 0,0,255,255,240
+
+;============================================================================
+; BMP Background Image Data
+;============================================================================
+bmp_loaded:        DB 0          ;Flag: 1 if BMP successfully loaded
+bmp_filename:      DB "STYX.BMP",0
+bmp_file_handle:   DW 0
+bmp_img_width:     DW 0
+bmp_img_height:    DW 0
+bmp_bytes_per_row: DW 0
+bmp_cur_row:       DW 0
+bmp_downsample:    DB 0          ;1 if 320->160 downsampling needed
+bmp_hdr:           times 118 DB 0 ;BMP file header + info header + palette
+bmp_row_buf:       times 164 DB 0 ;One BMP row (max 320@4bpp + padding)
+bmp_palette:       times 32 DB 0  ;Converted V6355 palette (16 colors x 2)
+pal_brightness:    times 16 DB 0  ;Brightness values (R+G+B, 0-21) per entry
+pal_remap:         times 16 DB 0  ;Forward map: pal_remap[new_pos] = old_index
+pal_inv_remap:     times 16 DB 0  ;Inverse map: pal_inv_remap[old_index] = new_pos
+
+;--- Background image buffer: 16000 bytes ---
+; Even rows (0,2,4,...198) at offset 0, odd rows (1,3,...199) at offset 8000
+; Each bank: 100 rows x 80 bytes = 8000 bytes
+; Total: 16000 bytes for full 160x200 resolution background
+bmp_background:    times 16000 DB 0
 
