@@ -15,7 +15,7 @@ This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and com
 
 | Aspect | Styx Remastered (CGA) | PC1 Hidden Mode |
 |--------|----------------------|-----------------|
-| Startup screen | 320×200×4 (CGA mode 4) | 320×200×4 (unchanged) |
+| Startup screen | 320×200×4 RLE-decoded logo | 320×200 BMP with per-scanline CGA palette flip |
 | Gameplay | 160×100×16 (tweaked CGA text mode) | 160×200×16 |
 | Colors | 16 (fixed CGA palette) | 16 (programmable 512-color palette) |
 | Pixel format | Character/attribute pairs at B800h | 4bpp, 2 pixels/byte at B000h |
@@ -23,6 +23,7 @@ This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and com
 
 ### Key modifications
 
+- **Startup screen**: Custom 8-bit BMP viewer using per-scanline V6355D palette reprogramming (CGA palette flip) in 320×200×4 mode, providing 3 independent colors per scanline from a 512-color palette. Falls back to the original RLE title if `STYX.BMP` is not found.
 - All pixel plotting, reading, and masking routines rewritten for 4bpp format
 - VRAM segment changed from B800h to B000h
 - Hidden mode enable sequence added (port D8h)
@@ -43,17 +44,19 @@ python make_exe.py STYX.BIN STYX.EXE
 
 ## Running
 
-Copy `STYX.EXE` to your Olivetti Prodest PC1 (or compatible system) and run it from DOS.
+Copy `STYX.EXE` and `STYX.BMP` to your Olivetti Prodest PC1 (or compatible system) and run from DOS.
 
 Command-line options (inherited from Styx Remastered):
 - `/Q` — Quiet mode (no sound)
 - `/S:n` — Set speed (default 100)
+- `/N` — No images (disable BMP loading)
 
 ## File Structure
 
 | File | Purpose |
 |------|---------|
 | `STYX.ASM` | Combined NASM source (this gets compiled) |
+| `STYX.BMP` | 320×200 8-bit BMP startup image (displayed with CGA palette flip) |
 | `make_exe.py` | Converts flat binary to DOS EXE |
 
 The original A86 source files and conversion script have been moved to `Old A86 Source Code/`:
@@ -79,19 +82,3 @@ The original A86 source files and conversion script have been moved to `Old A86 
 This program is free software under the [GNU General Public License v2](COPYING).
 
 Styx Remastered is Copyright © Andrew Jenner 1998–2004. The original Styx source code and binaries are Copyright © Windmill Software.
-
-
-
-Todo Styx
-
-Original CGA: DW 3,5,6,9,0xa — each of the 5 styx sticks used a different color (3=Cyan, 5=Magenta, 6=Brown, 9=Light Blue, 10=Light Green)
-Current PC1: DW 15,15,15,15,15 — all 5 sticks use color 15 (White), so the rainbow palette cycling on entry 15 makes them all glow the same cycling color
-
-per-scanline palette RAM manipulation for the sticks on the game. And for the enemy. 
-
-
-Making a New startup-screen using the same methods as pc1-bmp4.asm to load an 8bit BMP With CGA palette flip. 
-Use Styx.bmp as startup image.
-
-
-Can we compile game With the images in one large EXE file?

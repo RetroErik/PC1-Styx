@@ -36,7 +36,7 @@
 ;----------------------------------------------------------------------------
 ;  FILE STRUCTURE  (merged from original multi-file project)
 ;----------------------------------------------------------------------------
-;  Lines ~35-2080      STYX1.ASM — Core engine
+;  Lines ~119-4190     STYX1.ASM — Core engine
 ;                        MAIN entry, stack/segment init, command-line parse
 ;                        Random number generator (o227)
 ;                        Trig library: abs (o2a9), sin (o2c1), cos (o2e7)
@@ -56,10 +56,10 @@
 ;                        Player tail manager (o1bab)
 ;                        Player init (o1def) & movement logic
 ;
-;  Lines ~2080-2500    PARSE.ASM — Command-line parser (_parsecmd / cmdline)
-;                        Supports: /S:nn speed, /Q quiet
+;  Lines ~4194-4346    PARSE.ASM — Command-line parser (_parsecmd / cmdline)
+;                        Supports: /S:nn speed, /Q quiet, /N no images
 ;
-;  Lines ~2500-4200    STYX2.ASM — Game logic & scoring
+;  Lines ~4347-8146    STYX2.ASM — Game logic & scoring
 ;                        Player movement state machine (o21do)
 ;                        Territory claiming & enclosure detection (o235f)
 ;                        Flood fill for claimed areas (o3o89)
@@ -68,18 +68,21 @@
 ;                        High score file I/O — STYX.SCO (o37cf)
 ;                        Score / lives / level display (o3cc3, o3d8b, o3dc8)
 ;
-;  Lines ~4200-end     STYX3.ASM — Sound, rendering, main loop, math library
+;  Lines ~8147-12430   STYX3.ASM — Sound, rendering, main loop, math library
 ;                        PIT / speaker sound system (o4427)
 ;                        Sound effects: death (o48bd), birth (o49oa), level
 ;                        Character / digit rendering (o4b72, o4c8a)
 ;                        Text string printing (o4feb)
 ;                        Color palette cycling effects (o5o29, o5odd)
 ;                        *** MAIN GAME ENTRY: o556a — startup screen ***
-;                          → attract mode loop (o55a8)
-;                          → game init (o55do): load BMP, set PC1 mode,
-;                            draw border, init game state
-;                          → level loop (o56dd): calls player logic, enemy
-;                            AI, sound, tail, difficulty each frame
+;                          → loads STYX.BMP → shows BMP title with
+;                            per-scanline palette flip + high scores
+;                          → fallback: attract mode loop (o55a8)
+;                            with RLE title (o1142) if no BMP
+;                          → game init (o55do): load level BMP,
+;                            set PC1 mode, draw border, init state
+;                          → level loop (o56dd): calls player logic,
+;                            enemy AI, sound, tail, difficulty each frame
 ;                        32-bit fixed-point math: mul (o5993), div (o5ca2),
 ;                          add (o5f1b), compare (o6of2), normalize (o689c),
 ;                          denormalize (o68ce)
@@ -87,7 +90,13 @@
 ;                        BMP background loader (load_bmp_background)
 ;                        BMP palette conversion & rearrangement
 ;
-;  Lines ~11719+       .data section (DATA.ASM)
+;  Lines ~12430-13727  Startup BMP screen engine (ss_* routines)
+;                        load_startup_bmp — Pass 1: analyze STYX.BMP
+;                        show_startup_screen — Pass 2: render + display loop
+;                        Per-scanline V6355D palette reprogramming
+;                        (flip-first CGA palette flip in 320×200×4 mode)
+;
+;  Lines ~13780+       .data section (DATA.ASM)
 ;                        All game state variables, buffers, sprite data,
 ;                        lookup tables, character bitmaps, string constants.
 ;                        Key variables:
@@ -100,7 +109,8 @@
 ;                          pbo-pb7  — keyboard arrow-key pressed flags
 ;                          pco      — sound enabled flag (FFh = on)
 ;                          pc9      — CGA snow wait skip flag
-;                          bmp_loaded/bmp_background — BMP system
+;                          bmp_loaded/bmp_background — level BMP system
+;                          ss_loaded/ss_palette_stream — startup BMP data
 ;
 ;============================================================================
 
@@ -899,6 +909,9 @@ o526:
   RET
 
 o543:      ;Set up PC1 hidden 160x200x16 mode
+; NOTE: This routine calls pc1_set_cga_palette and clears VRAM.
+; Callers do NOT need to reset the palette before calling o543.
+; Video is ON after this returns (port D8h = 4Ah).
   PUSH BP
   MOV BP,SP
   ;--- Enable hidden graphics mode on V6355D ---
@@ -922,6 +935,20 @@ o543:      ;Set up PC1 hidden 160x200x16 mode
   RET
 
 ;--- PC1 palette programming routines ---
+; V6355D palette I/O summary:
+;   Port D8h: Mode control (02h=video off, 0Ah=CGA video on, 4Ah=hidden mode on)
+;   Port D9h: Palette flip register (bit 5 selects which palette bank is active;
+;             toggling this during HBLANK gives per-scanline color switching)
+;   Port DAh: Status register (bit 0=display active, bit 3=VSYNC)
+;   Port DDh: Palette bank control (40h=open for write, 44h=open at entry 2,
+;             80h=close)
+;   Port DEh: Palette data (sequential writes: R byte then GB byte per entry)
+;
+; IMPORTANT: INT 10h mode set resets the V6355D palette to BIOS defaults.
+; Always program custom palette AFTER calling INT 10h, not before.
+; Also: changing palette while video is ON shows a brief flash of the old
+; colors. For clean transitions, disable video first (OUT D8h, 02h), then
+; change palette, then re-enable video.
 pc1_set_cga_palette:
   ; Always write CGA palette to hardware.
   ; Reads palette from code segment to avoid DS dependency.
@@ -6566,6 +6593,15 @@ o3647:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o364c — Wait for keypress or joystick button release
+; WARNING: This is a BLOCKING wait loop. It polls pc3 (keyboard scancode)
+; and the joystick port (201h) in a tight loop until a key-down event is
+; detected, then waits for all inputs to be released before returning.
+; If you jump to code that calls o364c after already consuming a keypress
+; (e.g. from show_startup_screen), the user must press a key AGAIN.
+; This is why o55do_go exists — it skips o3575/o364c.
+;----------------------------------------------------------------------------
 o364c:
   PUSH BP
   SUB SP,6
@@ -7549,7 +7585,7 @@ o3e6d:
   PUSH AX
   CALL o5535
   MOV SP,BP
-  MOV word [BP+4],2
+  MOV word [BP+4],1
   MOV word [BP+2],1
 o3e97:
   CMP word [BP+2],0xb
@@ -9299,13 +9335,17 @@ o5562:
 ; This is where execution begins after the DOS loader.
 ; Initialization sequence:
 ;   1. Set p74d8=0xAF (game ID/flag)
-;   2. Call o4c3 (additional setup)
-;   3. Call o44b with mode 0 (set CGA text mode, unused on PC1)
+;   2. Call o4c3 (detect video adapter)
+;   3. Call o44b with mode 0 (set CGA mode 4)
 ;   4. Install INT 9 keyboard handler (ocec)
 ;   5. Clear last-scancode (pc3)
 ;   6. Load high scores from STYX.SCO (o37cf)
 ;   7. Initialize sound system (o4427)
-; Then falls through to the attract mode loop at o55a8.
+;   8. Load and analyze STYX.BMP (load_startup_bmp)
+;   9. If BMP loaded: show startup screen with per-scanline
+;      CGA palette flip + high scores, wait for keypress,
+;      then jump directly to o55do_go (game init)
+;  10. If no BMP: fall through to o55a8 (old RLE attract mode)
 ;============================================================================
 o556a:
   PUSH BP
@@ -9322,15 +9362,30 @@ o556a:
   MOV byte [pc3],0
   CALL o37cf
   CALL o4427
+  CALL load_startup_bmp
+  CMP byte [ss_loaded],0
+  JZ o55a8
+  CALL show_startup_screen
+  MOV byte [pc3],0
+  JMP o55do_go
 ;----------------------------------------------------------------------------
-; o55a8 — Attract mode loop (title screen)
-; Loops showing title screen (o1142 = RLE-decoded STYX logo) and
-; high score table (o3e6d). Waits for keypress (pc3 checked).
-; On keypress (non-release, bit 7 clear), transitions to o55do
-; (game initialization).
-; On no keypress (or release), cycles back to redraw title.
+; o55a8 — Attract mode / title screen (called after game over via o57af)
+; If STYX.BMP was loaded (ss_loaded=1): shows BMP startup screen
+;   with per-scanline palette flip + high scores, waits for keypress,
+;   then jumps directly to o55do_go (skipping joystick init).
+; If no BMP (ss_loaded=0): falls through to o55b6 which shows the
+;   old RLE-decoded STYX logo (o1142) + high score table (o3e6d),
+;   then falls through to o55do.
 ;----------------------------------------------------------------------------
 o55a8:
+  CMP byte [ss_loaded],0
+  JZ .old_attract
+  ; BMP mode: show BMP, then straight to game
+  MOV byte [pc3],0
+  CALL show_startup_screen
+  MOV byte [pc3],0
+  JMP o55do_go
+.old_attract:
   MOV AL,byte [pc3]
   TEST AL,AL
   JZ o55b6
@@ -9338,6 +9393,9 @@ o55a8:
   AND AX,0x80
   JZ o55do
 o55b6:
+  ; Belt-and-suspenders: if BMP loaded, never show old RLE title
+  CMP byte [ss_loaded],0
+  JNZ o55do_go
   XOR AX,AX
   PUSH AX
   CALL o44b
@@ -9348,24 +9406,28 @@ o55b6:
   CALL o1142
   CALL o3e6d
 ;----------------------------------------------------------------------------
-; o55do — Game initialization
-; Sets up a new game session:
-;   1. Calls o3575 (reset controller) and o364c (wait for button release)
-;   2. Clears last-scancode, disables VRAM writes
-;   3. Sets level=1, loads level-specific BMP (load_level_bmp)
-;   4. Enters PC1 hidden 160×200×16 graphics mode (o543)
-;   5. Clears screen with color 6 (o8c1)
-;   6. Draws game border: double rectangle at (1,9)-(0x9E,0x62)
+; o55do — Game initialization (full path from old attract mode)
+;   Calls o3575 (joystick reset) and o364c (wait for button release)
+;   then falls through to o55do_go.
+;
+; o55do_go — Game initialization (direct entry from BMP startup screen)
+;   Skips joystick wait (keypress already consumed by BMP display loop).
+;   1. Clears last-scancode, disables VRAM writes
+;   2. Sets level=1, loads level-specific BMP (load_level_bmp)
+;   3. Enters PC1 hidden 160×200×16 graphics mode (o543)
+;   4. Clears screen with color 6 (o8c1)
+;   5. Draws game border: double rectangle at (1,9)-(0x9E,0x62)
 ;      outer border color 7, inner border 2 pixels inside
-;   7. Sets initial state: lives=3
-;   8. Resets difficulty (o38d8), sound (o43c7)
-;   9. Calls o57b5 (level setup), enables VRAM writes
-;  10. Activates BMP palette if BMP was loaded
-;  11. Refreshes screen (o5c3), falls through to o56dd level loop
+;   6. Sets initial state: lives=3
+;   7. Resets difficulty (o38d8), sound (o43c7)
+;   8. Calls o57b5 (level setup), enables VRAM writes
+;   9. Activates BMP palette if BMP was loaded
+;  10. Refreshes screen (o5c3), falls through to o56dd level loop
 ;----------------------------------------------------------------------------
 o55do:
   CALL o3575
   CALL o364c
+o55do_go:
   MOV byte [pc3],0
   MOV word [pcb],0
   MOV word [p74d4],1       ;Set level=1 before loading its BMP
@@ -12411,6 +12473,1306 @@ rearrange_palette_for_game:
   POP AX
   RET
 
+;============================================================================
+; STARTUP BMP SCREEN — 8-Bit BMP with CGA Palette Flip
+; Uses PC1-BMP4 flip-first per-scanline V6355D palette reprogramming
+; technique in CGA 320x200x4 mode for 3 independent colors per scanline.
+;
+; Pass 1 (load_startup_bmp, called once at startup):
+;   Reads STYX.BMP, analyzes per-scanline color frequencies, builds
+;   palette stream data. Uses bmp_background area for temp buffers.
+;
+; Pass 2 (show_startup_screen, called to display):
+;   Re-reads STYX.BMP, remaps pixels to 2bpp CGA, renders to VRAM.
+;   Uses p12e shadow buffer for temp buffers (free during CGA mode).
+;   Enters FLIP-FIRST display loop until keypress.
+;============================================================================
+
+; --- Temp buffer equates (Pass 1: bmp_background, Pass 2: p12e) ---
+ss_bmp_header     equ bmp_background
+ss_p1_row_buffer  equ bmp_background + 1088
+ss_p1_color_count equ bmp_background + 1412
+ss_p1_clc         equ bmp_background + 1924
+
+ss_p2_row_buffer  equ p12e
+ss_p2_remap_table equ p12e + 324
+
+;============================================================================
+; load_startup_bmp — Load and analyze STYX.BMP (called once at startup)
+; Sets ss_loaded=1 on success. Uses bmp_background for temp buffers.
+;============================================================================
+load_startup_bmp:
+  PUSH SI
+  PUSH DI
+
+  MOV byte [ss_loaded],0
+
+  ; Open STYX.BMP
+  MOV DX,ss_filename
+  MOV AX,0x3D00
+  INT 0x21
+  JC .fail
+  MOV [ss_file_handle],AX
+
+  ; Read header + palette (up to 1078 bytes)
+  MOV BX,AX
+  MOV DX,ss_bmp_header
+  MOV CX,1078
+  MOV AH,0x3F
+  INT 0x21
+  JC .close
+  CMP AX,54
+  JB .close
+
+  ; Validate BMP signature 'BM'
+  CMP word [ss_bmp_header],0x4D42
+  JNE .close
+
+  ; Detect bits per pixel
+  MOV AX,[ss_bmp_header + 28]
+  CMP AX,4
+  JE .bpp4
+  CMP AX,8
+  JE .bpp8
+  JMP .close
+
+.bpp4:
+  MOV byte [ss_bpp],4
+  MOV word [ss_num_colors],16
+  MOV word [ss_row_bytes],160
+  JMP .bpp_ok
+
+.bpp8:
+  MOV byte [ss_bpp],8
+  MOV word [ss_num_colors],256
+  MOV word [ss_row_bytes],320
+
+.bpp_ok:
+  ; Must be uncompressed
+  CMP word [ss_bmp_header + 30],0
+  JNE .close
+
+  ; Must be 320 wide
+  CMP word [ss_bmp_header + 18],320
+  JNE .close
+
+  ; Height: accept positive 200 or absolute value
+  MOV AX,[ss_bmp_header + 22]
+  TEST AX,AX
+  JNS .hpos
+  NEG AX
+.hpos:
+  CMP AX,200
+  JNE .close
+
+  ; Save pixel data offset
+  MOV AX,[ss_bmp_header + 10]
+  MOV [ss_data_offset_lo],AX
+  MOV AX,[ss_bmp_header + 12]
+  MOV [ss_data_offset_hi],AX
+
+  ; Convert palette
+  CALL ss_convert_palette
+
+  ; Find background (darkest color)
+  CALL ss_find_bg_index
+
+  ; Seek to pixel data for Pass 1
+  MOV BX,[ss_file_handle]
+  MOV DX,[ss_data_offset_lo]
+  MOV CX,[ss_data_offset_hi]
+  MOV AX,0x4200
+  INT 0x21
+  JC .close
+
+  ; Pass 1: analyze all scanlines
+  CALL ss_analyze_image
+
+  ; Reorder by stability
+  CALL ss_reorder_by_stability
+
+  ; Build palette stream (2400 bytes)
+  CALL ss_build_palette_stream
+
+  ; Build stream lengths (200 bytes)
+  CALL ss_build_stream_lengths
+
+  MOV byte [ss_loaded],1
+
+.close:
+  MOV BX,[ss_file_handle]
+  OR BX,BX
+  JZ .fail
+  MOV AH,0x3E
+  INT 0x21
+
+.fail:
+  POP DI
+  POP SI
+  RET
+
+;============================================================================
+; show_startup_screen — Display STYX.BMP as startup/attract screen
+; Sets CGA mode 4, re-reads STYX.BMP from disk, renders to VRAM with
+; per-scanline color remapping, draws high scores on top, then enters
+; the FLIP-FIRST V6355D palette streaming display loop.
+; Video stays disabled until the first palette frame is ready, ensuring
+; a clean transition. On keypress, disables video before returning
+; to prevent palette flash during the transition to gameplay.
+;============================================================================
+show_startup_screen:
+  PUSH SI
+  PUSH DI
+
+  ; Set CGA mode 4
+  MOV AX,0x0004
+  INT 0x10
+  CLD
+
+  ; Disable video during VRAM write
+  MOV AL,0x02
+  OUT 0xD8,AL
+
+  ; Open file for Pass 2
+  MOV DX,ss_filename
+  MOV AX,0x3D00
+  INT 0x21
+  JC .show_fail
+  MOV [ss_file_handle],AX
+
+  ; Seek to pixel data
+  MOV BX,AX
+  MOV DX,[ss_data_offset_lo]
+  MOV CX,[ss_data_offset_hi]
+  MOV AX,0x4200
+  INT 0x21
+  JC .show_close
+
+  ; Pass 2: render to CGA VRAM
+  CALL ss_render_to_vram
+
+.show_close:
+  MOV BX,[ss_file_handle]
+  MOV AH,0x3E
+  INT 0x21
+
+  ; Draw high scores while display is still off (BIOS writes to VRAM)
+  CALL o3e6d
+
+  ; Program initial palette
+  CALL ss_program_initial_palette
+
+  ; Clear stale keypress
+  MOV byte [pc3],0
+
+  ; Do first palette render while display is off, then enable video
+  CALL ss_wait_vblank
+  CALL ss_render_frame
+  MOV AL,0x0A
+  OUT 0xD8,AL               ;Enable video — palette already correct
+
+  ; Display loop: render_frame per VSYNC, check for keypress
+.display_loop:
+  CALL ss_wait_vblank
+  CALL ss_render_frame
+  MOV AL,byte [pc3]
+  TEST AL,AL
+  JZ .display_loop
+  XOR AH,AH
+  AND AX,0x80
+  JNZ .display_loop         ;Ignore key-release events
+
+  ; Disable video before returning to prevent palette flash
+  MOV AL,0x02
+  OUT 0xD8,AL
+
+.show_fail:
+  POP DI
+  POP SI
+  RET
+
+;============================================================================
+; ss_convert_palette — Convert BMP BGRA palette to RGB888 + V6355D format
+;============================================================================
+ss_convert_palette:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH SI
+  PUSH DI
+
+  MOV SI,ss_bmp_header + 54
+  XOR DI,DI
+  MOV CX,[ss_num_colors]
+
+.cvt_loop:
+  LODSB
+  MOV [ss_pal_b + DI],AL       ;Blue
+  LODSB
+  MOV [ss_pal_g + DI],AL       ;Green
+  LODSB
+  MOV [ss_pal_r + DI],AL       ;Red
+
+  ; Build V6355D 2-byte entry
+  MOV BX,DI
+  SHL BX,1
+  MOV AL,[ss_pal_r + DI]
+  SHR AL,5
+  MOV [ss_v6355_pal + BX],AL
+
+  MOV AL,[ss_pal_g + DI]
+  AND AL,0xE0
+  SHR AL,1
+  MOV AH,AL
+  MOV AL,[ss_pal_b + DI]
+  SHR AL,5
+  OR AL,AH
+  MOV [ss_v6355_pal + BX + 1],AL
+
+  LODSB                         ;Skip alpha byte
+  INC DI
+  LOOP .cvt_loop
+
+  POP DI
+  POP SI
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_find_bg_index — Auto-detect darkest palette entry as background
+;============================================================================
+ss_find_bg_index:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH DX
+  PUSH SI
+
+  XOR AX,AX                    ;AX = best index
+  MOV DX,0x7FFF                ;DX = min brightness sum
+  XOR BX,BX
+  MOV CX,[ss_num_colors]
+
+.fbg_loop:
+  PUSH AX
+  XOR SI,SI
+  XOR AH,AH
+  MOV AL,[ss_pal_r + BX]
+  ADD SI,AX
+  MOV AL,[ss_pal_g + BX]
+  ADD SI,AX
+  MOV AL,[ss_pal_b + BX]
+  ADD SI,AX
+  POP AX
+
+  CMP SI,DX
+  JAE .fbg_skip
+  MOV DX,SI
+  MOV AX,BX
+
+.fbg_skip:
+  INC BX
+  LOOP .fbg_loop
+
+  MOV [ss_bg_index],AL
+
+  ; Force bg to black in palette tables
+  XOR BH,BH
+  MOV BL,AL
+  MOV byte [ss_pal_r + BX],0
+  MOV byte [ss_pal_g + BX],0
+  MOV byte [ss_pal_b + BX],0
+  SHL BX,1
+  MOV word [ss_v6355_pal + BX],0
+
+  POP SI
+  POP DX
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_analyze_image — Pass 1: Read all BMP rows, find top 3 per scanline
+; BMP is bottom-up: first row read = screen row 199.
+;============================================================================
+ss_analyze_image:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH DX
+  PUSH SI
+  PUSH DI
+
+  MOV word [ss_cur_row],199
+
+.ai_loop:
+  MOV DX,ss_p1_row_buffer
+  CALL ss_read_bmp_row
+  JC .ai_done
+  CMP AX,[ss_row_bytes]
+  JB .ai_done
+
+  CALL ss_analyze_scanline
+
+  MOV AX,[ss_cur_row]
+  OR AX,AX
+  JZ .ai_done
+  DEC word [ss_cur_row]
+  JMP .ai_loop
+
+.ai_done:
+  POP DI
+  POP SI
+  POP DX
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_analyze_scanline — Count colors, find top 3 for current row
+;============================================================================
+ss_analyze_scanline:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH DX
+  PUSH SI
+  PUSH DI
+
+  ; Clear color counts (256 words)
+  PUSH ES
+  PUSH DS
+  POP ES
+  MOV DI,ss_p1_color_count
+  MOV CX,256
+  XOR AX,AX
+  REP STOSW
+  POP ES
+
+  ; Count pixel colors
+  MOV SI,ss_p1_row_buffer
+  CMP byte [ss_bpp],8
+  JE .count_8bpp
+
+  ; --- 4bpp: 2 pixels per byte ---
+  MOV CX,160
+  XOR BH,BH
+.count4:
+  LODSB
+  MOV AH,AL
+  SHR AL,4
+  MOV BL,AL
+  SHL BX,1
+  INC word [ss_p1_color_count + BX]
+  SHR BX,1
+  MOV AL,AH
+  AND AL,0x0F
+  MOV BL,AL
+  SHL BX,1
+  INC word [ss_p1_color_count + BX]
+  SHR BX,1
+  LOOP .count4
+  JMP .count_done
+
+  ; --- 8bpp: 1 pixel per byte ---
+.count_8bpp:
+  MOV CX,320
+  XOR BH,BH
+.count8:
+  LODSB
+  MOV BL,AL
+  SHL BX,1
+  INC word [ss_p1_color_count + BX]
+  SHR BX,1
+  LOOP .count8
+
+.count_done:
+  ; Exclude background
+  XOR BX,BX
+  MOV BL,[ss_bg_index]
+  SHL BX,1
+  MOV word [ss_p1_color_count + BX],0
+
+  ; Find top 3
+  CALL ss_find_max_color
+  MOV [ss_top3_temp],AL
+  XOR BX,BX
+  MOV BL,AL
+  SHL BX,1
+  MOV word [ss_p1_color_count + BX],0
+
+  CALL ss_find_max_color
+  MOV [ss_top3_temp + 1],AL
+  XOR BX,BX
+  MOV BL,AL
+  SHL BX,1
+  MOV word [ss_p1_color_count + BX],0
+
+  CALL ss_find_max_color
+  MOV [ss_top3_temp + 2],AL
+
+  ; Store top3 for this scanline
+  MOV BX,[ss_cur_row]
+  MOV AX,BX
+  SHL AX,1
+  ADD BX,AX
+  MOV AL,[ss_top3_temp]
+  MOV [ss_scanline_top3 + BX],AL
+  MOV AL,[ss_top3_temp + 1]
+  MOV [ss_scanline_top3 + BX + 1],AL
+  MOV AL,[ss_top3_temp + 2]
+  MOV [ss_scanline_top3 + BX + 2],AL
+
+  POP DI
+  POP SI
+  POP DX
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_find_max_color — Find palette index with highest pixel count
+; Returns: AL = best index (ss_bg_index if no non-zero counts remain)
+;============================================================================
+ss_find_max_color:
+  PUSH BX
+  PUSH CX
+  PUSH DX
+
+  XOR AX,AX
+  MOV AL,[ss_bg_index]
+  XOR DX,DX
+  XOR BX,BX
+  MOV CX,[ss_num_colors]
+
+.fmc_loop:
+  CMP [ss_p1_color_count + BX],DX
+  JBE .fmc_skip
+  MOV DX,[ss_p1_color_count + BX]
+  MOV AX,BX
+  SHR AX,1
+
+.fmc_skip:
+  ADD BX,2
+  DEC CX
+  JNZ .fmc_loop
+
+  POP DX
+  POP CX
+  POP BX
+  RET
+
+;============================================================================
+; ss_reorder_by_stability — Reorder top3: most stable → high entries (6/7)
+;============================================================================
+ss_reorder_by_stability:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH DX
+  PUSH SI
+  PUSH DI
+
+  ; Clear line presence counts (256 words)
+  PUSH ES
+  PUSH DS
+  POP ES
+  MOV DI,ss_p1_clc
+  MOV CX,256
+  XOR AX,AX
+  REP STOSW
+  POP ES
+
+  ; Count lines where each color appears
+  MOV SI,ss_scanline_top3
+  MOV CX,200
+.rbs_count:
+  LODSB
+  CMP AL,[ss_bg_index]
+  JE .rbs_s1
+  XOR BX,BX
+  MOV BL,AL
+  SHL BX,1
+  INC word [ss_p1_clc + BX]
+.rbs_s1:
+  LODSB
+  CMP AL,[ss_bg_index]
+  JE .rbs_s2
+  XOR BX,BX
+  MOV BL,AL
+  SHL BX,1
+  INC word [ss_p1_clc + BX]
+.rbs_s2:
+  LODSB
+  CMP AL,[ss_bg_index]
+  JE .rbs_s3
+  XOR BX,BX
+  MOV BL,AL
+  SHL BX,1
+  INC word [ss_p1_clc + BX]
+.rbs_s3:
+  LOOP .rbs_count
+
+  ; Find most common → ss_global_c (entries 6/7)
+  XOR AX,AX
+  MOV AL,[ss_bg_index]
+  XOR DX,DX
+  XOR BX,BX
+  MOV CX,[ss_num_colors]
+.find1:
+  CMP [ss_p1_clc + BX],DX
+  JBE .f1_skip
+  MOV DX,[ss_p1_clc + BX]
+  MOV AX,BX
+  SHR AX,1
+.f1_skip:
+  ADD BX,2
+  LOOP .find1
+
+  MOV [ss_global_c],AL
+  CMP AL,[ss_bg_index]
+  JE .no_reorder
+  XOR BX,BX
+  MOV BL,AL
+  SHL BX,1
+  MOV word [ss_p1_clc + BX],0
+
+  ; Find 2nd most common → ss_global_b (entries 4/5)
+  XOR AX,AX
+  MOV AL,[ss_bg_index]
+  XOR DX,DX
+  XOR BX,BX
+  MOV CX,[ss_num_colors]
+.find2:
+  CMP [ss_p1_clc + BX],DX
+  JBE .f2_skip
+  MOV DX,[ss_p1_clc + BX]
+  MOV AX,BX
+  SHR AX,1
+.f2_skip:
+  ADD BX,2
+  LOOP .find2
+
+  MOV [ss_global_b],AL
+
+  ; Reorder each line's top3
+  MOV SI,ss_scanline_top3
+  MOV CX,200
+.reorder:
+  MOV AL,[SI]
+  MOV AH,[SI + 1]
+  MOV DL,[SI + 2]
+
+  ; Place global_c in slot 2
+  MOV DH,[ss_global_c]
+  CMP DL,DH
+  JE .chk_b
+  CMP AL,DH
+  JE .c_in_0
+  CMP AH,DH
+  JE .c_in_1
+  JMP .chk_b
+.c_in_0:
+  XCHG AL,DL
+  JMP .chk_b
+.c_in_1:
+  XCHG AH,DL
+.chk_b:
+  MOV DH,[ss_global_b]
+  CMP DH,[ss_bg_index]
+  JE .rbs_store
+  CMP AH,DH
+  JE .rbs_store
+  CMP AL,DH
+  JNE .rbs_store
+  XCHG AL,AH
+.rbs_store:
+  MOV [SI],AL
+  MOV [SI + 1],AH
+  MOV [SI + 2],DL
+  ADD SI,3
+  LOOP .reorder
+
+.no_reorder:
+  POP DI
+  POP SI
+  POP DX
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_build_palette_stream — Build interleaved V6355D data for entries 2-7
+; 200 lines x 12 bytes = 2400 bytes total.
+;============================================================================
+ss_build_palette_stream:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH DX
+  PUSH SI
+  PUSH DI
+
+  XOR CX,CX
+  MOV DI,ss_palette_stream
+
+.bps_loop:
+  ; Far line (N+2) — inactive pre-load target
+  MOV BX,CX
+  ADD BX,2
+  CMP BX,200
+  JB .far_ok
+  SUB BX,200
+.far_ok:
+  MOV AX,BX
+  SHL AX,1
+  ADD BX,AX
+  MOV AL,[ss_scanline_top3 + BX]
+  MOV [ss_bps_cur_a],AL
+  MOV AL,[ss_scanline_top3 + BX + 1]
+  MOV [ss_bps_cur_b],AL
+  MOV AL,[ss_scanline_top3 + BX + 2]
+  MOV [ss_bps_cur_c],AL
+
+  ; Near line (N+1) — passthrough
+  MOV BX,CX
+  INC BX
+  CMP BX,200
+  JB .near_ok
+  SUB BX,200
+.near_ok:
+  MOV AX,BX
+  SHL AX,1
+  ADD BX,AX
+  MOV AL,[ss_scanline_top3 + BX]
+  MOV [ss_bps_nxt_a],AL
+  MOV AL,[ss_scanline_top3 + BX + 1]
+  MOV [ss_bps_nxt_b],AL
+  MOV AL,[ss_scanline_top3 + BX + 2]
+  MOV [ss_bps_nxt_c],AL
+
+  TEST CL,1
+  JNZ .bps_odd
+
+  ; EVEN line: E2,E4,E6=far(inactive), E3,E5,E7=near(active)
+  XOR BX,BX
+  MOV BL,[ss_bps_cur_a]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI],AX
+  XOR BX,BX
+  MOV BL,[ss_bps_nxt_a]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI + 2],AX
+  XOR BX,BX
+  MOV BL,[ss_bps_cur_b]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI + 4],AX
+  XOR BX,BX
+  MOV BL,[ss_bps_nxt_b]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI + 6],AX
+  XOR BX,BX
+  MOV BL,[ss_bps_cur_c]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI + 8],AX
+  XOR BX,BX
+  MOV BL,[ss_bps_nxt_c]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI + 10],AX
+  JMP .bps_next
+
+.bps_odd:
+  ; ODD line: E2,E4,E6=near(active), E3,E5,E7=far(inactive)
+  XOR BX,BX
+  MOV BL,[ss_bps_nxt_a]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI],AX
+  XOR BX,BX
+  MOV BL,[ss_bps_cur_a]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI + 2],AX
+  XOR BX,BX
+  MOV BL,[ss_bps_nxt_b]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI + 4],AX
+  XOR BX,BX
+  MOV BL,[ss_bps_cur_b]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI + 6],AX
+  XOR BX,BX
+  MOV BL,[ss_bps_nxt_c]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI + 8],AX
+  XOR BX,BX
+  MOV BL,[ss_bps_cur_c]
+  SHL BX,1
+  MOV AX,[ss_v6355_pal + BX]
+  MOV [DI + 10],AX
+
+.bps_next:
+  ADD DI,12
+  INC CX
+  CMP CX,200
+  JB .bps_loop
+
+  POP DI
+  POP SI
+  POP DX
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_build_stream_lengths — Determine skip(0) or write(12) per scanline
+;============================================================================
+ss_build_stream_lengths:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH SI
+  PUSH DI
+
+  MOV byte [ss_stream_len],12       ;Line 0 always full
+  MOV SI,1
+
+.bsl_loop:
+  MOV BX,SI
+  MOV AX,BX
+  SHL AX,1
+  ADD BX,AX
+
+  MOV DI,SI
+  ADD DI,2
+  CMP DI,200
+  JB .bsl_ok
+  SUB DI,200
+.bsl_ok:
+  MOV AX,DI
+  SHL AX,1
+  ADD DI,AX
+
+  MOV AL,[ss_scanline_top3 + BX]
+  CMP AL,[ss_scanline_top3 + DI]
+  JNE .bsl_full
+  MOV AL,[ss_scanline_top3 + BX + 1]
+  CMP AL,[ss_scanline_top3 + DI + 1]
+  JNE .bsl_full
+  MOV AL,[ss_scanline_top3 + BX + 2]
+  CMP AL,[ss_scanline_top3 + DI + 2]
+  JNE .bsl_full
+
+  MOV byte [ss_stream_len + SI],0
+  JMP .bsl_next
+
+.bsl_full:
+  MOV byte [ss_stream_len + SI],12
+
+.bsl_next:
+  INC SI
+  CMP SI,200
+  JB .bsl_loop
+
+  POP DI
+  POP SI
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_render_to_vram — Pass 2: Read BMP, remap pixels, write to CGA VRAM
+; Reads from STYX.BMP (file already open and seeked).
+; Uses p12e area for row_buffer and remap_table.
+;============================================================================
+ss_render_to_vram:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH DX
+  PUSH SI
+  PUSH DI
+  PUSH ES
+
+  MOV AX,0xB800
+  MOV ES,AX
+  MOV word [ss_cur_row],199
+
+.rv_loop:
+  MOV DX,ss_p2_row_buffer
+  CALL ss_read_bmp_row
+  JC .rv_done
+  CMP AX,[ss_row_bytes]
+  JB .rv_done
+
+  CALL ss_build_remap_table
+
+  ; Calculate CGA VRAM offset (interlaced)
+  MOV AX,[ss_cur_row]
+  PUSH AX
+  SHR AX,1
+  MOV BX,80
+  MUL BX
+  MOV DI,AX
+  POP AX
+  TEST AL,1
+  JZ .rv_even
+  ADD DI,0x2000
+.rv_even:
+
+  MOV SI,ss_p2_row_buffer
+  MOV BX,ss_p2_remap_table
+  MOV CX,80
+
+  CMP byte [ss_bpp],8
+  JE .rv_8
+
+  ; --- 4bpp conversion ---
+.rv_4:
+  XOR DH,DH
+  LODSB
+  MOV DL,AL
+  SHR AL,4
+  XLAT
+  OR DH,AL
+  SHL DH,2
+  MOV AL,DL
+  AND AL,0x0F
+  XLAT
+  OR DH,AL
+  SHL DH,2
+  LODSB
+  MOV DL,AL
+  SHR AL,4
+  XLAT
+  OR DH,AL
+  SHL DH,2
+  MOV AL,DL
+  AND AL,0x0F
+  XLAT
+  OR DH,AL
+  MOV AL,DH
+  STOSB
+  LOOP .rv_4
+  JMP .rv_cv_done
+
+  ; --- 8bpp conversion ---
+.rv_8:
+  XOR DH,DH
+  LODSB
+  XLAT
+  OR DH,AL
+  SHL DH,2
+  LODSB
+  XLAT
+  OR DH,AL
+  SHL DH,2
+  LODSB
+  XLAT
+  OR DH,AL
+  SHL DH,2
+  LODSB
+  XLAT
+  OR DH,AL
+  MOV AL,DH
+  STOSB
+  LOOP .rv_8
+
+.rv_cv_done:
+  MOV AX,[ss_cur_row]
+  OR AX,AX
+  JZ .rv_done
+  DEC word [ss_cur_row]
+  JMP .rv_loop
+
+.rv_done:
+  POP ES
+  POP DI
+  POP SI
+  POP DX
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_build_remap_table — Build BMP index → CGA value (0-3) lookup
+; CGA: 0=black, 1=ColorA(E2/3), 2=ColorB(E4/5), 3=ColorC(E6/7)
+;============================================================================
+ss_build_remap_table:
+  PUSH AX
+  PUSH BX
+  PUSH CX
+  PUSH DX
+  PUSH SI
+
+  MOV BX,[ss_cur_row]
+  MOV AX,BX
+  SHL AX,1
+  ADD BX,AX
+
+  MOV AL,[ss_scanline_top3 + BX]
+  MOV [ss_top3_temp],AL
+  MOV AL,[ss_scanline_top3 + BX + 1]
+  MOV [ss_top3_temp + 1],AL
+  MOV AL,[ss_scanline_top3 + BX + 2]
+  MOV [ss_top3_temp + 2],AL
+
+  XOR CX,CX
+
+.brt_loop:
+  CMP CL,[ss_bg_index]
+  JE .brt_black
+  CMP CL,[ss_top3_temp]
+  JE .brt_1
+  CMP CL,[ss_top3_temp + 1]
+  JE .brt_2
+  CMP CL,[ss_top3_temp + 2]
+  JE .brt_3
+  CALL ss_find_nearest
+  JMP .brt_store
+
+.brt_black:
+  XOR AL,AL
+  JMP .brt_store
+.brt_1:
+  MOV AL,1
+  JMP .brt_store
+.brt_2:
+  MOV AL,2
+  JMP .brt_store
+.brt_3:
+  MOV AL,3
+
+.brt_store:
+  MOV BX,CX
+  MOV [ss_p2_remap_table + BX],AL
+  INC CX
+  CMP CX,[ss_num_colors]
+  JB .brt_loop
+
+  POP SI
+  POP DX
+  POP CX
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_find_nearest — Find nearest CGA value by RGB Manhattan distance
+; Input: CL = BMP palette index    Output: AL = CGA value (0-3)
+;============================================================================
+ss_find_nearest:
+  PUSH BX
+  PUSH CX
+  PUSH DX
+  PUSH SI
+
+  XOR BH,BH
+  MOV BL,CL
+
+  ; Distance to black (0,0,0)
+  XOR DX,DX
+  XOR AH,AH
+  MOV AL,[ss_pal_r + BX]
+  ADD DX,AX
+  MOV AL,[ss_pal_g + BX]
+  ADD DX,AX
+  MOV AL,[ss_pal_b + BX]
+  ADD DX,AX
+  MOV [ss_nn_best_dist],DX
+  MOV byte [ss_nn_best_cga],0
+
+  ; Distance to Color A
+  MOV AL,[ss_top3_temp]
+  CMP AL,[ss_bg_index]
+  JE .fn_done
+  XOR AH,AH
+  MOV SI,AX
+  CALL ss_compute_dist
+  CMP DX,[ss_nn_best_dist]
+  JAE .fn_try2
+  MOV [ss_nn_best_dist],DX
+  MOV byte [ss_nn_best_cga],1
+
+.fn_try2:
+  MOV AL,[ss_top3_temp + 1]
+  CMP AL,[ss_bg_index]
+  JE .fn_done
+  XOR AH,AH
+  MOV SI,AX
+  CALL ss_compute_dist
+  CMP DX,[ss_nn_best_dist]
+  JAE .fn_try3
+  MOV [ss_nn_best_dist],DX
+  MOV byte [ss_nn_best_cga],2
+
+.fn_try3:
+  MOV AL,[ss_top3_temp + 2]
+  CMP AL,[ss_bg_index]
+  JE .fn_done
+  XOR AH,AH
+  MOV SI,AX
+  CALL ss_compute_dist
+  CMP DX,[ss_nn_best_dist]
+  JAE .fn_done
+  MOV byte [ss_nn_best_cga],3
+
+.fn_done:
+  MOV AL,[ss_nn_best_cga]
+
+  POP SI
+  POP DX
+  POP CX
+  POP BX
+  RET
+
+;============================================================================
+; ss_compute_dist — RGB888 Manhattan distance |R1-R2|+|G1-G2|+|B1-B2|
+; Input: BX = index 1, SI = index 2    Output: DX = distance
+;============================================================================
+ss_compute_dist:
+  XOR DX,DX
+  MOV AL,[ss_pal_r + BX]
+  SUB AL,[ss_pal_r + SI]
+  JNC .r_pos
+  NEG AL
+.r_pos:
+  XOR AH,AH
+  ADD DX,AX
+  MOV AL,[ss_pal_g + BX]
+  SUB AL,[ss_pal_g + SI]
+  JNC .g_pos
+  NEG AL
+.g_pos:
+  XOR AH,AH
+  ADD DX,AX
+  MOV AL,[ss_pal_b + BX]
+  SUB AL,[ss_pal_b + SI]
+  JNC .b_pos
+  NEG AL
+.b_pos:
+  XOR AH,AH
+  ADD DX,AX
+  RET
+
+;============================================================================
+; ss_read_bmp_row — Read one BMP row from file
+; Input: DX = target buffer address
+; Returns: CF set on error, AX = bytes read
+;============================================================================
+ss_read_bmp_row:
+  PUSH BX
+  PUSH CX
+  PUSH ES
+  MOV BX,[ss_file_handle]
+  MOV CX,[ss_row_bytes]
+  MOV AH,0x3F
+  INT 0x21
+  POP ES
+  POP CX
+  POP BX
+  RET
+
+;============================================================================
+; ss_program_initial_palette — Set V6355D entries 0-7 for first frame
+;============================================================================
+ss_program_initial_palette:
+  PUSH AX
+  PUSH BX
+  PUSH SI
+
+  CLI
+  MOV AL,0x40
+  OUT 0xDD,AL
+  JMP SHORT $+2
+
+  ; E0-E1: black (4 zero bytes)
+  XOR AL,AL
+  OUT 0xDE,AL
+  JMP SHORT $+2
+  OUT 0xDE,AL
+  JMP SHORT $+2
+  OUT 0xDE,AL
+  JMP SHORT $+2
+  OUT 0xDE,AL
+  JMP SHORT $+2
+
+  ; E2 = line 0 Color A
+  XOR BX,BX
+  MOV BL,[ss_scanline_top3]
+  SHL BX,1
+  MOV AL,[ss_v6355_pal + BX]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+  MOV AL,[ss_v6355_pal + BX + 1]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+
+  ; E3 = line 1 Color A
+  XOR BX,BX
+  MOV BL,[ss_scanline_top3 + 3]
+  SHL BX,1
+  MOV AL,[ss_v6355_pal + BX]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+  MOV AL,[ss_v6355_pal + BX + 1]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+
+  ; E4 = line 0 Color B
+  XOR BX,BX
+  MOV BL,[ss_scanline_top3 + 1]
+  SHL BX,1
+  MOV AL,[ss_v6355_pal + BX]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+  MOV AL,[ss_v6355_pal + BX + 1]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+
+  ; E5 = line 1 Color B
+  XOR BX,BX
+  MOV BL,[ss_scanline_top3 + 4]
+  SHL BX,1
+  MOV AL,[ss_v6355_pal + BX]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+  MOV AL,[ss_v6355_pal + BX + 1]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+
+  ; E6 = line 0 Color C
+  XOR BX,BX
+  MOV BL,[ss_scanline_top3 + 2]
+  SHL BX,1
+  MOV AL,[ss_v6355_pal + BX]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+  MOV AL,[ss_v6355_pal + BX + 1]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+
+  ; E7 = line 1 Color C
+  XOR BX,BX
+  MOV BL,[ss_scanline_top3 + 5]
+  SHL BX,1
+  MOV AL,[ss_v6355_pal + BX]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+  MOV AL,[ss_v6355_pal + BX + 1]
+  OUT 0xDE,AL
+  JMP SHORT $+2
+
+  MOV AL,0x80
+  OUT 0xDD,AL
+  STI
+
+  POP SI
+  POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_render_frame — FLIP-FIRST per-scanline HBLANK palette streaming
+; Runs all 200 scanlines with CLI/STI. Uses REP OUTSB for speed.
+;============================================================================
+ss_render_frame:
+  CLI
+  CLD
+  PUSH BP
+
+  MOV SI,ss_palette_stream
+  MOV CX,200
+  MOV DX,0xDE              ;PORT_REG_DATA for OUTSB
+  MOV BL,0x20              ;PAL_ODD (first flip target)
+  MOV BH,0x00              ;PAL_EVEN
+  MOV BP,ss_stream_len
+
+.rf_wait_low:
+  IN AL,0xDA
+  TEST AL,0x01
+  JNZ .rf_wait_low
+
+.rf_wait_high:
+  IN AL,0xDA
+  TEST AL,0x01
+  JZ .rf_wait_high
+
+  ; === FLIP FIRST ===
+  MOV AL,BL
+  OUT 0xD9,AL
+  XCHG BL,BH
+
+  ; Write palette entries?
+  CMP byte [BP],0
+  JE .rf_skip
+  INC BP
+
+  ; Full write: open at entry 2, stream 12 bytes (E2-E7)
+  MOV AL,0x44
+  OUT 0xDD,AL
+  PUSH CX
+  MOV CX,12
+  REP OUTSB
+  POP CX
+  MOV AL,0x80
+  OUT 0xDD,AL
+  JMP .rf_continue
+
+.rf_skip:
+  INC BP
+  ADD SI,12
+
+.rf_continue:
+  LOOP .rf_wait_low
+
+  ; Reset to palette 0
+  MOV AL,0x00
+  OUT 0xD9,AL
+
+  POP BP
+  STI
+  RET
+
+;============================================================================
+; ss_wait_vblank — Wait for vertical blanking period
+;============================================================================
+ss_wait_vblank:
+  PUSH AX
+  PUSH DX
+  MOV DX,0xDA
+.not_vb:
+  IN AL,DX
+  TEST AL,0x08
+  JNZ .not_vb
+.in_vb:
+  IN AL,DX
+  TEST AL,0x08
+  JZ .in_vb
+  POP DX
+  POP AX
+  RET
+
+; === End of Startup BMP Screen code ===
+
 codeend:
 
 ;============================================================================
@@ -13865,4 +15227,36 @@ pal_inv_remap:     times 16 DB 0  ;Inverse map: pal_inv_remap[old_index] = new_p
 ; Each bank: 100 rows x 80 bytes = 8000 bytes
 ; Total: 16000 bytes for full 160x200 resolution background
 bmp_background:    times 16000 DB 0
+
+;============================================================================
+; Startup BMP Screen Data (persistent across gameplay)
+;============================================================================
+ss_loaded:          DB 0          ;1 if startup BMP analyzed successfully
+ss_bpp:             DB 0          ;4 or 8 bits per pixel
+ss_num_colors:      DW 0          ;16 or 256 palette entries
+ss_row_bytes:       DW 0          ;Bytes per BMP row (160 or 320)
+ss_data_offset_lo:  DW 0          ;BMP pixel data offset (lo word)
+ss_data_offset_hi:  DW 0          ;BMP pixel data offset (hi word)
+ss_bg_index:        DB 0          ;Darkest palette entry (background)
+ss_global_b:        DB 0          ;2nd most common color (entries 4/5)
+ss_global_c:        DB 0          ;Most common color (entries 6/7)
+ss_cur_row:         DW 0          ;Current row during processing
+ss_file_handle:     DW 0          ;DOS file handle for STYX.BMP
+ss_top3_temp:       DB 0,0,0      ;Temp: top 3 color indices
+ss_nn_best_dist:    DW 0          ;Temp: nearest-neighbor best distance
+ss_nn_best_cga:     DB 0          ;Temp: nearest-neighbor best CGA value
+ss_bps_cur_a:       DB 0          ;Temp: far line color A
+ss_bps_cur_b:       DB 0          ;Temp: far line color B
+ss_bps_cur_c:       DB 0          ;Temp: far line color C
+ss_bps_nxt_a:       DB 0          ;Temp: near line color A
+ss_bps_nxt_b:       DB 0          ;Temp: near line color B
+ss_bps_nxt_c:       DB 0          ;Temp: near line color C
+ss_filename:        DB "STYX.BMP",0
+ss_pal_r:           times 256 DB 0 ;Red channel (0-255) per palette entry
+ss_pal_g:           times 256 DB 0 ;Green channel per palette entry
+ss_pal_b:           times 256 DB 0 ;Blue channel per palette entry
+ss_v6355_pal:       times 512 DB 0 ;V6355D 2-byte entries (up to 256 colors)
+ss_scanline_top3:   times 600 DB 0 ;Top 3 colors per scanline (3 x 200)
+ss_stream_len:      times 200 DB 0 ;Per-line: 0=skip, 12=full write
+ss_palette_stream:  times 2400 DB 0 ;Interleaved V6355D data (12 bytes x 200)
 
