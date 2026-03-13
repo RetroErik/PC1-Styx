@@ -9601,6 +9601,7 @@ o57ao:
   JMP o56dd
 o57af:
   CALL o3a65
+  CALL pc1_set_cga_palette     ;Reset palette for title screen
   JMP o55a8
 o57b5:
   PUSH BP
