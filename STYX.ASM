@@ -833,8 +833,9 @@ helpmsg:
   DB "Restored 1998 by AJ Software",10,13
   DB "NASM conversion & PC1 port: Retro Erik, 2026",10,13,10,13
   DB "Command line syntax:",10,13
-  DB "  STYX [[/S:]speed] [/Q]",10,13,10,13
-  DB "/Q = Quiet mode (no sound at all)",10,13,"$"
+  DB "  STYX [[/S:]speed] [/Q] [/N]",10,13,10,13
+  DB "/Q = Quiet mode (no sound at all)",10,13
+  DB "/N = No images (use solid colors)",10,13,"$"
 
 errormsg:
   DB "Olivetti PC1 required.",10,13,"$"
@@ -4293,6 +4294,13 @@ o244o:
 o244e:
   CALL _quiet
 o2451:
+  CMP byte [BP-0x85],0x4E      ;'N'
+  JZ .set_noimages
+  CMP byte [BP-0x85],0x6E      ;'n'
+  JNZ .no_noimages
+.set_noimages:
+  MOV byte [no_images],1
+.no_noimages:
   JMP o248f
 o2453:
   CMP SI,1
@@ -9344,12 +9352,12 @@ o55b6:
 ; Sets up a new game session:
 ;   1. Calls o3575 (reset controller) and o364c (wait for button release)
 ;   2. Clears last-scancode, disables VRAM writes
-;   3. Loads BMP background (load_bmp_background)
+;   3. Sets level=1, loads level-specific BMP (load_level_bmp)
 ;   4. Enters PC1 hidden 160×200×16 graphics mode (o543)
 ;   5. Clears screen with color 6 (o8c1)
 ;   6. Draws game border: double rectangle at (1,9)-(0x9E,0x62)
 ;      outer border color 7, inner border 2 pixels inside
-;   7. Sets initial state: level=1, lives=3
+;   7. Sets initial state: lives=3
 ;   8. Resets difficulty (o38d8), sound (o43c7)
 ;   9. Calls o57b5 (level setup), enables VRAM writes
 ;  10. Activates BMP palette if BMP was loaded
@@ -9360,10 +9368,11 @@ o55do:
   CALL o364c
   MOV byte [pc3],0
   MOV word [pcb],0
+  MOV word [p74d4],1       ;Set level=1 before loading its BMP
   MOV AX,6
   PUSH AX
-  ; Load BMP background image (before entering graphics mode)
-  CALL load_bmp_background
+  ; Load level-specific BMP background (before entering graphics mode)
+  CALL load_level_bmp
   CALL o543
   MOV SP,BP
   XOR AX,AX
@@ -9466,7 +9475,6 @@ o55do:
   PUSH AX
   CALL oab6
   MOV SP,BP
-  MOV word [p74d4],1
   MOV word [p74d2],3
   CALL o38d8
   CALL o43c7
@@ -9579,8 +9587,15 @@ o578o:
   INC word [BP+6]
   JMP o578o
 o57ao:
+  CALL load_level_bmp          ;Load BMP for new level (if it exists)
   MOV word [pcb],1
-  CALL pc1_set_cga_palette  ;Reset to CGA palette for start screen
+  CMP byte [bmp_loaded],0
+  JNZ .level_has_bmp
+  CALL pc1_set_cga_palette     ;No BMP: use CGA palette
+  JMP .level_palette_done
+.level_has_bmp:
+  CALL set_bmp_game_palette    ;BMP loaded: use BMP palette
+.level_palette_done:
   CALL o57b5
   CALL o5c3
   JMP o56dd
@@ -11869,15 +11884,34 @@ o6d52:
 ; continues with normal solid-color territory display.
 ;============================================================================
 ;============================================================================
+; load_level_bmp — Load level-specific BMP background
+; Constructs filename "STYXn.BMP" (n = current level digit 1-9)
+; from p74d4, then calls load_bmp_background.
+; If the file doesn't exist, bmp_loaded will be 0 and the game
+; falls back to the standard color method.
+;============================================================================
+load_level_bmp:
+  CMP byte [no_images],0
+  JNZ .no_img
+  MOV AX,[p74d4]         ;Get current level (1-9)
+  ADD AL,'0'             ;Convert to ASCII digit
+  MOV [bmp_filename+4],AL ;Patch filename: "STYXn.BMP"
+  CALL load_bmp_background
+  RET
+.no_img:
+  MOV byte [bmp_loaded],0
+  RET
+
+;============================================================================
 ; load_bmp_background — BMP Background Image Loader
-; Loads an optional STYX.BMP file to use as the background image
+; Loads the BMP file named by bmp_filename as the background image
 ; that is revealed when territory is claimed.
 ;
 ; Supports: 4-bit uncompressed BMP, 160×200 or 320×200 resolution.
 ; For 320-wide BMPs, downsamples to 160 by skipping every other pixel.
 ;
 ; Process:
-;   1. Opens bmp_filename ("STYX.BMP") via DOS INT 21h
+;   1. Opens bmp_filename ("STYXn.BMP") via DOS INT 21h
 ;   2. Reads 118-byte BMP header into bmp_hdr
 ;   3. Validates: must be 4-bit, uncompressed (BI_RGB)
 ;   4. Converts BGRA palette to V6355D format (convert_bmp_palette)
@@ -13809,8 +13843,9 @@ p763o:
 ;============================================================================
 ; BMP Background Image Data
 ;============================================================================
+no_images:         DB 0          ;Flag: 1 if /N switch disables BMP loading
 bmp_loaded:        DB 0          ;Flag: 1 if BMP successfully loaded
-bmp_filename:      DB "STYX.BMP",0
+bmp_filename:      DB "STYX0.BMP",0  ;Digit at [bmp_filename+4] patched per level
 bmp_file_handle:   DW 0
 bmp_img_width:     DW 0
 bmp_img_height:    DW 0

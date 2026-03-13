@@ -89,15 +89,9 @@ Current PC1: DW 15,15,15,15,15 — all 5 sticks use color 15 (White), so the rai
 
 per-scanline palette RAM manipulation for the sticks on the game. And for the enemy. 
 
-Add a startup parameter to use different background images.
-
-Default is to use styx1.bmp styx2.bmp and so on for each Level.
 
 Making a New startup-screen using the same methods as pc1-bmp4.asm to load an 8bit BMP With CGA palette flip. 
 Use Styx.bmp as startup image.
-
-
-Adding a help screen /? from dos telling about the Controls for the game, and the parameters to set upon start
 
 
 Can we compile game With the images in one large EXE file?
