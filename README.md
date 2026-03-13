@@ -79,3 +79,25 @@ The original A86 source files and conversion script have been moved to `Old A86 
 This program is free software under the [GNU General Public License v2](COPYING).
 
 Styx Remastered is Copyright © Andrew Jenner 1998–2004. The original Styx source code and binaries are Copyright © Windmill Software.
+
+
+
+Todo Styx
+
+Original CGA: DW 3,5,6,9,0xa — each of the 5 styx sticks used a different color (3=Cyan, 5=Magenta, 6=Brown, 9=Light Blue, 10=Light Green)
+Current PC1: DW 15,15,15,15,15 — all 5 sticks use color 15 (White), so the rainbow palette cycling on entry 15 makes them all glow the same cycling color
+
+per-scanline palette RAM manipulation for the sticks on the game. And for the enemy. 
+
+Add a startup parameter to use different background images.
+
+Default is to use styx1.bmp styx2.bmp and so on for each Level.
+
+Making a New startup-screen using the same methods as pc1-bmp4.asm to load an 8bit BMP With CGA palette flip. 
+Use Styx.bmp as startup image.
+
+
+Adding a help screen /? from dos telling about the Controls for the game, and the parameters to set upon start
+
+
+Can we compile game With the images in one large EXE file?

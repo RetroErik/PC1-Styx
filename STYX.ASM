@@ -1,3 +1,109 @@
+;============================================================================
+;  STYX REMASTERED — Olivetti Prodest PC1 Port
+;============================================================================
+;  Original game:  Windmill Software, 1983
+;  Remastered by:  Andrew Jenner, 1998-2004
+;  NASM conversion & PC1 port: Retro Erik, 2026
+;
+;  Target CPU:   NEC V40 (80186 instruction set)
+;  Target video: Olivetti V6355D — hidden 160×200×16-color mode
+;                VRAM at B000:0000 (even scanlines) and B000:2000 (odd)
+;                Each bank: 100 rows × 80 bytes/row = 8000 bytes
+;                Each byte = 2 pixels (high nibble = left, low = right)
+;  Shadow buffer: p12e in data segment — 8000-byte copy of VRAM (even bank
+;                 layout), all game logic writes here first, then copies
+;                 to both VRAM banks during screen refresh.
+;
+;  Palette:  16 colours × 2 bytes, programmed via I/O ports DDh/DEh
+;            Port DDh: 40h = open palette for writing, 80h = close
+;            Port DEh: sequential writes of 32 bytes (R then GB per color)
+;            Format per color — byte 1: Red (bits 0-2, 0-7)
+;                               byte 2: Green (bits 4-6) | Blue (bits 0-2)
+;            CGA palette table:  cs_cga_colors (in code segment)
+;            BMP palette table:  bmp_palette   (in data segment)
+;
+;  Sound:    PC speaker driven by PIT Timer channel 2 (ports 40h-43h)
+;            Speaker gate via port 61h bits 0-1
+;            INT 8 timer ISR handles timed speaker toggling for music/SFX
+;
+;  Input:    Keyboard via INT 9 handler (port 60h), optional joystick (201h)
+;
+;  BMP background: Optional STYX.BMP loaded at startup; territory colors
+;            1-6 are substituted with corresponding BMP pixels during VRAM
+;            writes, creating a "reveal the picture" effect as territory
+;            is claimed.
+;
+;----------------------------------------------------------------------------
+;  FILE STRUCTURE  (merged from original multi-file project)
+;----------------------------------------------------------------------------
+;  Lines ~35-2080      STYX1.ASM — Core engine
+;                        MAIN entry, stack/segment init, command-line parse
+;                        Random number generator (o227)
+;                        Trig library: abs (o2a9), sin (o2c1), cos (o2e7)
+;                        Speed calibration (calibrate) & delay loops
+;                        CGA mode setup (o44b) & PC1 hidden mode (o543)
+;                        Palette programming (pc1_set_cga_palette)
+;                        Screen refresh / BMP reveal (o5c3)
+;                        Territory color fill (o64o) & pixel scanning
+;                        Pixel read/write: oa6e (coord→addr), oa7d (read),
+;                          oa89 (write+BMP sub), bmp_vram_write
+;                        Screen clear (o8c1), VBlank wait
+;                        Keyboard INT 9 handler (od2e) & key dispatch table
+;                        Key state vars: pbo-pb7 (arrows), pd3/pd4 (direction)
+;                        Screen wobble effect
+;                        Timer INT 8 handler (o11dd) — sound timing
+;                        Enemy init (o1227) & AI movement loop (o1391)
+;                        Player tail manager (o1bab)
+;                        Player init (o1def) & movement logic
+;
+;  Lines ~2080-2500    PARSE.ASM — Command-line parser (_parsecmd / cmdline)
+;                        Supports: /S:nn speed, /Q quiet
+;
+;  Lines ~2500-4200    STYX2.ASM — Game logic & scoring
+;                        Player movement state machine (o21do)
+;                        Territory claiming & enclosure detection (o235f)
+;                        Flood fill for claimed areas (o3o89)
+;                        Score / level management, difficulty progression
+;                        Joystick support (o35ee, o37oo)
+;                        High score file I/O — STYX.SCO (o37cf)
+;                        Score / lives / level display (o3cc3, o3d8b, o3dc8)
+;
+;  Lines ~4200-end     STYX3.ASM — Sound, rendering, main loop, math library
+;                        PIT / speaker sound system (o4427)
+;                        Sound effects: death (o48bd), birth (o49oa), level
+;                        Character / digit rendering (o4b72, o4c8a)
+;                        Text string printing (o4feb)
+;                        Color palette cycling effects (o5o29, o5odd)
+;                        *** MAIN GAME ENTRY: o556a — startup screen ***
+;                          → attract mode loop (o55a8)
+;                          → game init (o55do): load BMP, set PC1 mode,
+;                            draw border, init game state
+;                          → level loop (o56dd): calls player logic, enemy
+;                            AI, sound, tail, difficulty each frame
+;                        32-bit fixed-point math: mul (o5993), div (o5ca2),
+;                          add (o5f1b), compare (o6of2), normalize (o689c),
+;                          denormalize (o68ce)
+;                        printf-like formatter (o6o56)
+;                        BMP background loader (load_bmp_background)
+;                        BMP palette conversion & rearrangement
+;
+;  Lines ~11719+       .data section (DATA.ASM)
+;                        All game state variables, buffers, sprite data,
+;                        lookup tables, character bitmaps, string constants.
+;                        Key variables:
+;                          p12e     — shadow VRAM buffer (8000 bytes)
+;                          p38ca/ce — diamond (safe) positions (x/y arrays)
+;                          p3cf8/fa — player position (x, y)
+;                          p3doo    — player direction
+;                          p74d2    — lives remaining
+;                          p74d4    — current level
+;                          pbo-pb7  — keyboard arrow-key pressed flags
+;                          pco      — sound enabled flag (FFh = on)
+;                          pc9      — CGA snow wait skip flag
+;                          bmp_loaded/bmp_background — BMP system
+;
+;============================================================================
+
 ; Styx Remastered - NASM conversion for Olivetti Prodest PC1
 ; Copyright (c) Windmill Software in 1983
 ; Copyright (c) Andrew Jenner 1998-2004
@@ -9,7 +115,9 @@ cpu 186                     ; NEC V40 supports 80186 instructions
 
 section .text start=0 vstart=0
 
-; === STYX1.ASM ===
+;============================================================================
+;  STYX1.ASM — Core Engine (video, input, math, enemies, player movement)
+;============================================================================
 
 ; Styx Remastered
 ; Copyright (c) Andrew Jenner 1998-2004
@@ -27,19 +135,26 @@ section .text start=0 vstart=0
 ; PUBLIC _printhelp,delay1,delay2
 
 
+;----------------------------------------------------------------------------
+; MAIN — Program entry point
+; Sets up DS/SS segments to immediately after the code section,
+; establishes stack at top of 64KB, copies command-line args to
+; a local buffer, then calls o17b which parses args and enters
+; the main game function chain.
+;----------------------------------------------------------------------------
 MAIN:
   CLI
-  MOV AX,codeend
-  ADD AX,0xf
-  SHR AX,4
+  MOV AX,codeend          ;AX = first byte after code section
+  ADD AX,0xf              ;Round up to next paragraph
+  SHR AX,4                ;Convert to segment
   MOV BX,CS
-  ADD AX,BX
+  ADD AX,BX               ;DS = CS + code_paragraphs (data segment)
   MOV DS,AX
   MOV SS,AX
-  MOV BX,0x1000
-  SUB BX,AX
-  TEST BX,0xf000
-  MOV BX,0xfff0
+  MOV BX,0x1000           ;64KB
+  SUB BX,AX               ;Space remaining
+  TEST BX,0xf000          ;Check overflow
+  MOV BX,0xfff0           ;SP at top of 64KB
   MOV SP,BX
   STI
   MOV word [p],BX
@@ -86,9 +201,15 @@ o172:
   MOV SP,AX
   RETF
 
+;----------------------------------------------------------------------------
+; o17b — Post-init dispatcher
+; Parses command line, calibrates CPU speed, then parses the
+; already-split argv[] array (at [BP+8]) following C-style calling
+; convention. Eventually calls into the main game entry (o556a).
+;----------------------------------------------------------------------------
 o17b:
-  CALL cmdline
-  CALL calibrate
+  CALL cmdline            ;Parse /S /Q command-line switches
+  CALL calibrate          ;Measure CPU speed → volume (KIPS value)
   PUSH BP
   SUB SP,4
   MOV BP,SP
@@ -203,6 +324,10 @@ o227:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o2a9 — Absolute value
+; Input: word on stack    Output: AX = |input|
+;----------------------------------------------------------------------------
 o2a9:
   PUSH BP
   SUB SP,2
@@ -217,6 +342,10 @@ o2b9:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o2c1 — Cosine (calls sine with +90° offset)
+; Input: angle on stack (degrees)   Output: AX = cos(angle) scaled 0-100
+;----------------------------------------------------------------------------
 o2c1:
   PUSH BP
   SUB SP,2
@@ -235,14 +364,20 @@ o2da:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o2e7 — Sine function
+; Input: angle on stack (degrees, 0-359)   Output: AX = sin(angle) scaled
+; Uses a 10-entry lookup table (o3fo) for 0-90° range, mirrors for
+; other quadrants via the dispatch table at o343.
+;----------------------------------------------------------------------------
 o2e7:
   PUSH BP
   SUB SP,8
   MOV BP,SP
   MOV AX,word [BP+0xc]
-  MOV BX,0x5a
+  MOV BX,0x5a              ;90 degrees
   CWD
-  IDIV BX
+  IDIV BX                  ;AX = quadrant (0-3), DX = angle within quadrant
   JMP o34b
 o2f8:
   MOV AX,word [BP+0xc]
@@ -313,6 +448,11 @@ o3e5:
 o3fo:
   DW 0,0x11,0x22,0x31,0x40,0x4c,0x56,0x5d,0x62,0x64
 
+;----------------------------------------------------------------------------
+; o41c — Delay loop (variable count)
+; Input: count on stack   Uses 'volume' (calibrated KIPS) for timing
+; Each iteration burns cycles proportional to CPU speed.
+;----------------------------------------------------------------------------
 o41c:
   PUSH BP
   SUB SP,6
@@ -393,16 +533,20 @@ o434x2:
   RET
 
 
+;--- Speed calibration data ---
 speed0:
-  DW 291
+  DW 291              ;Reference KIPS value for speed normalization
 _speedmul:
-  DW 100
+  DW 100              ;Speed multiplier (set by /S:nn switch)
 _mode:
-  DW 0
+  DW 0                ;Video mode: 0=auto, 1=CGA, 2=VGA (PC1 always 1)
 
 volume:
-  DW 0,0
+  DW 0,0              ;Calibrated speed value (32-bit KIPS×speedmul/speed0)
 
+;----------------------------------------------------------------------------
+; lmul — 32-bit multiply:  DX:AX = DX:AX × CX:BX
+;----------------------------------------------------------------------------
 lmul:       ;DXAX = DXAX * CXBX
   PUSH SI
   XCHG SI,AX
@@ -423,6 +567,9 @@ m2:
   POP SI
   RET
 
+;----------------------------------------------------------------------------
+; ldiv — 32-bit divide:  DX:AX = DX:AX ÷ CX:BX
+;----------------------------------------------------------------------------
 ldiv:       ;DXAX = DXAX / CXBX
   PUSH BP
   PUSH SI
@@ -499,6 +646,13 @@ d0:
   XOR DX,DX
   JMP d8
 
+;----------------------------------------------------------------------------
+; calibrate — Measure CPU speed and compute game timing constant
+; Calls getkips to measure iterations per BIOS tick, then:
+;   volume = (KIPS × _speedmul) / speed0
+; This value is used by all delay loops (o41c, delay1, delay2)
+; to keep game speed consistent across different CPUs.
+;----------------------------------------------------------------------------
 calibrate:
   CALL getkips ;Now we have the computer KIPS speed in DX:AX
   MOV BX,word [cs:_speedmul]
@@ -532,6 +686,11 @@ cmdline:
   POP ES
   RET
 
+;----------------------------------------------------------------------------
+; getkips — Measure CPU speed in kilo-instructions per BIOS tick
+; Waits for a BIOS timer tick (18.2 Hz at 0040:006C), then counts
+; how many calls to timekips fit in one tick. Returns DX:AX = count.
+;----------------------------------------------------------------------------
 getkips:
   PUSH ES
   MOV AX,0x40
@@ -575,6 +734,11 @@ timekips:
 o449:
   DW 0
 
+;----------------------------------------------------------------------------
+; o44b — CGA mode setup (not used on PC1, but kept for compatibility)
+; Programs CGA CRTC registers directly, sets 320×200×4 mode via INT 10h.
+; On PC1 we skip this and use o543 for hidden 16-color mode instead.
+;----------------------------------------------------------------------------
 o44b:
   PUSH BP
   MOV BP,SP
@@ -667,17 +831,13 @@ _setspeedmul:
 helpmsg:
   DB "STYX - Copyright (c) 1983 Windmill software",10,13
   DB "Restored 1998 by AJ Software",10,13
-  DB "http://fly.to/digger",10,13,10,13
+  DB "NASM conversion & PC1 port: Retro Erik, 2026",10,13,10,13
   DB "Command line syntax:",10,13
-  DB "  STYX [[/S:]speed] [/C] [/V] [/Q]",10,13,10,13
-  DB "/C = Use CGA graphics",10,13
-  DB "/V = Use VGA graphics",10,13
+  DB "  STYX [[/S:]speed] [/Q]",10,13,10,13
   DB "/Q = Quiet mode (no sound at all)",10,13,"$"
 
 errormsg:
-  DB "CGA or better adapter required.",10,13
-  DB "Use /C for CGA or /V for EGA or better if you believe you have one."
-  DB 10,13,"$"
+  DB "Olivetti PC1 required.",10,13,"$"
 
 _printhelp:
   MOV AX,helpmsg
@@ -848,6 +1008,21 @@ chartable:
   DB 0,254,24,24,48,24,12,24,14,27,24,24,0,24,0,118,56,108,0,0
   DB 0,0,15,12,108,54,120,12,0,0,0,0
 
+;----------------------------------------------------------------------------
+; o5c3 — Screen refresh (PC1 hidden mode)
+; Copies shadow buffer (p12e, 8000 bytes) to both VRAM banks.
+;
+; Fast path (no BMP): memcpy shadow → bank0, memcpy shadow → bank1
+;
+; BMP reveal path: for each byte, checks both nibbles. If a pixel
+; has color 1-6 (territory claim colors), substitutes the
+; corresponding pixel from bmp_background to reveal the image.
+; Non-territory colors (0=background, 7=border, 12=trail, 15=text)
+; are written unchanged.
+;
+; VRAM layout: B000:0000 = even scanlines, B000:2000 = odd scanlines
+; Each bank: 100 rows × 80 bytes = 8000 bytes
+;----------------------------------------------------------------------------
 o5c3:         ;Redraw screen (PC1 hidden mode — with BMP background reveal)
   PUSH BP
   MOV BP,SP
@@ -2153,6 +2328,11 @@ ofb6:
   CMP byte [pbe],0xff
   JZ ofbe
   RET
+;----------------------------------------------------------------------------
+; ofbe — Exit game (Ctrl+Alt+Del handler / F10)
+; Silences speaker, restores INT 8 & INT 9 vectors, restores CGA
+; palette, switches back to text mode, and exits to DOS.
+;----------------------------------------------------------------------------
 ofbe:
   IN AL,0x61
   AND AL,0xfc
@@ -2173,6 +2353,11 @@ ofbe:
   MOV AX,0x4c00
   INT 0x21
 
+;----------------------------------------------------------------------------
+; ofce — Screen wobble effect (Ctrl + Left/Right shifts horizontal sync)
+; Adjusts CRTC register 2 (horizontal sync position) to make the
+; display wobble left/right. Currently commented out for PC1.
+;----------------------------------------------------------------------------
 ofce:
   CMP byte [pbc],0xff
   JZ ofd6
@@ -2240,6 +2425,13 @@ o1o61:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o1o9a / o1oc3 — High score file I/O (STYX.SCO)
+; o1o9a: Read 512 bytes from STYX.SCO into p215o buffer
+; o1oc3: Write 512 bytes from p215o buffer to STYX.SCO
+; Uses DOS INT 21h file operations (3Dh=open, 3Fh=read, 40h=write,
+; 3Ch=create, 3Eh=close).
+;----------------------------------------------------------------------------
 filename:
   DB 'STYX.SCO',0
 
@@ -2286,6 +2478,13 @@ writeerror:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o1142 — Decompress and draw RLE-encoded title screen
+; Reads from p2354 (RLE data), writes to CGA VRAM at B800:0000.
+; RLE format: 0xFE followed by count byte and value byte means
+; "repeat value count times"; any other byte is literal.
+; This draws the Styx logo / title art.
+;----------------------------------------------------------------------------
 o1142:
   PUSH ES
   PUSH BP
@@ -2328,6 +2527,12 @@ o117d:
 int8save:
   DW 0,0
 
+;----------------------------------------------------------------------------
+; o117f — Install custom INT 8 (timer) handler
+; Saves the old INT 8 vector (at 0000:0020) and replaces it with
+; our handler at o11dd. The old vector is saved in int8save for
+; chaining and restoration.
+;----------------------------------------------------------------------------
 o117f:
   MOV AX,DS
   MOV word [cs:o117d],AX
@@ -2348,6 +2553,10 @@ o117f:
   MOV word [cs:int8save+2],BX
   RET
 
+;----------------------------------------------------------------------------
+; restoreint8 — Restore original INT 8 timer handler
+; Also resets PIT channel 0 to default 18.2 Hz rate (count=0).
+;----------------------------------------------------------------------------
 restoreint8:
   CLI
   MOV AL,0x36
@@ -2367,6 +2576,17 @@ restoreint8:
   POP DS
   RET
 
+;----------------------------------------------------------------------------
+; o11dd — INT 8 timer interrupt service routine (sound/timing)
+; Called at the PIT rate (programmable). Three modes:
+;   p38bc=0: no sound (speaker off)
+;   p38bc=1: timed pulse — turn speaker on for p38c3 cycles, then off
+;   p38bc=2: toggle speaker state (square wave) for tone generation
+;
+; Also accumulates p38co timing counter (incremented by p38be each
+; tick) and chains to the original INT 8 at the standard 18.2 Hz
+; rate using int8count/int8speed as a fractional divider.
+;----------------------------------------------------------------------------
 o11dd:
   PUSHF
   STI
@@ -2427,6 +2647,12 @@ int8count:
 int8speed:
   DW 0
 
+;----------------------------------------------------------------------------
+; o1227 — Initialize enemies for current level
+; Sets p38f6 = number of enemies (1 if level<3, else 2).
+; For each enemy: places at a diamond position, sets random
+; direction and speed based on difficulty parameters.
+;----------------------------------------------------------------------------
 o1227:
   PUSH BP
   SUB SP,8
@@ -2550,6 +2776,11 @@ o135a:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o135f — Enemy AI dispatcher
+; Calls o1391 for each active enemy (0 to p38f6-1).
+; Skips if game-over flag is set.
+;----------------------------------------------------------------------------
 o135f:
   PUSH BP
   SUB SP,4
@@ -2577,6 +2808,28 @@ o138c:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o1391 — Enemy AI movement (single enemy)
+; Input: enemy index on stack
+; Per frame: computes new position using sin/cos of direction angle,
+; boundary-checks (3 < x < 156, 11 < y < 96), detects collisions
+; with player trail (bit 15 in ob18 result = tail hit → player death).
+; On collision with border: reverts position, picks new random
+; direction, may double speed temporarily.
+; Also tracks proximity to player for pursuit behavior.
+;
+; Key enemy state arrays (indexed by enemy# × 2):
+;   p38ca/ce = enemy x/y position
+;   p38d2/d6 = x/y velocity components
+;   p38da    = movement direction (angle in degrees)
+;   p38de    = direction delta (angular velocity)
+;   p38e2    = direction change rate
+;   p38e6    = speed divisor (lower = faster)
+;   p38ea    = target speed
+;   p38ee    = sprite animation frame
+;   p38f2    = animation cycle counter
+;   p38f8    = enemy trail history ring buffer
+;----------------------------------------------------------------------------
 o1391:
   PUSH BP
   SUB SP,0x2c
@@ -2958,6 +3211,12 @@ o17a9:
 o16fc:
   DW 3,5,6,9,0xa
 
+;----------------------------------------------------------------------------
+; o17ae — Set random direction and speed for an enemy
+; Input: enemy index on stack
+; Picks random direction angle, calculates x/y velocity from
+; sin/cos, sets random target speed.
+;----------------------------------------------------------------------------
 o17ae:
   PUSH BP
   SUB SP,0xe
@@ -3069,6 +3328,11 @@ o18ba:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o18bf — Check if second enemy should be removed
+; If enemy 1's position overlaps a claimed area (color not present
+; at its diamond position), reduce enemy count to 1.
+;----------------------------------------------------------------------------
 o18bf:
   PUSH BP
   SUB SP,2
@@ -3089,6 +3353,11 @@ o18e7:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o18ec — Draw all enemies (iterate through animation frames)
+; For each enemy, draws its 5-point trail using ob18 (read-scan)
+; to check for collisions, then oab6 to draw the lines.
+;----------------------------------------------------------------------------
 o18ec:
   PUSH BP
   SUB SP,0x1a
@@ -3213,6 +3482,11 @@ o1aoc:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o1a11 — Erase all enemies (XOR mode)
+; Redraws all enemy trail segments using oae7 (XOR draw) to erase
+; them from the screen.
+;----------------------------------------------------------------------------
 o1a11:
   PUSH BP
   SUB SP,0x1a
@@ -3305,6 +3579,11 @@ o1add:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o1ae5 — Initialize player tail count
+; Sets p3cf6 (number of tail segments) based on level:
+; 1 if level < 2, else 2.
+;----------------------------------------------------------------------------
 o1ae5:
   PUSH BP
   SUB SP,2
@@ -3322,6 +3601,13 @@ o1bo1:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o1bo9 — Player tail movement manager
+; Moves the player's tail segments each frame. Tail follows the
+; path the player has recorded. Checks for collisions with borders
+; and enemies. Also handles the main game delay loop (o41c) for
+; frame pacing.
+;----------------------------------------------------------------------------
 o1bo9:
   PUSH BP
   SUB SP,8
@@ -3400,6 +3686,12 @@ o1ba6:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o1bab — Single tail segment movement
+; Input: tail index on stack
+; Moves one tail segment along the recorded path, reads pixel at
+; new position to detect collisions with borders/enemies.
+;----------------------------------------------------------------------------
 o1bab:
   PUSH BP
   SUB SP,6
@@ -3993,25 +4285,6 @@ o24oe:
   CALL _printhelp
   CALL _exit
 o2414:
-  CMP byte [BP-0x85],0x43
-  JZ o2422
-  CMP byte [BP-0x85],0x63
-  JNZ o242a
-o2422:
-  MOV AX,1
-  PUSH AX
-  CALL _setmode
-  POP CX
-o242a:
-  CMP byte [BP-0x85],0x56
-  JZ o2438
-  CMP byte [BP-0x85],0x76
-  JNZ o244o
-o2438:
-  MOV AX,2
-  PUSH AX
-  CALL _setmode
-  POP CX
 o244o:
   CMP byte [BP-0x85],0x51
   JZ o244e
@@ -6242,6 +6515,13 @@ o35e9:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o35ee — Joystick and keyboard input polling
+; Reads pd3 (keyboard direction) and pd4 (last direction), stores
+; into p6c78. Also checks pba (keyboard action key) and p6c82
+; (joystick enabled flag). If joystick is enabled, calls o4f2
+; to read the joystick port (201h) and updates p6c84 (action flag).
+;----------------------------------------------------------------------------
 o35ee:
   PUSH BP
   SUB SP,4
@@ -6344,6 +6624,14 @@ o36fb:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o37oo — Direction state query
+; Returns the current movement direction by combining keyboard (pd3)
+; and joystick (pd5/pd7) inputs. For joystick mode (p6c82≠ 0),
+; compares joystick axis values against calibrated center values
+; (p6c7a/7c/7e/8o) to determine 8-way direction (0-7).
+; Returns direction in p6c78.
+;----------------------------------------------------------------------------
 o37oo:
   PUSH BP
   SUB SP,4
@@ -6403,6 +6691,10 @@ o379a:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o37a2 — Movement enabled query
+; Returns p6c84 in AX: 1 = player is actively moving, 0 = idle.
+;----------------------------------------------------------------------------
 o37a2:
   PUSH BP
   MOV BP,SP
@@ -6410,6 +6702,11 @@ o37a2:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o37aa — Game state initialization
+; Resets score tracking variables (p6c92-p6c98), calls o2ff4 to prepare
+; the playing field, and updates the score display via o3cc3.
+;----------------------------------------------------------------------------
 o37aa:
   PUSH BP
   MOV BP,SP
@@ -6426,6 +6723,14 @@ o37aa:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o37cf — High score file I/O
+; Reads STYX.SCO via o1o9a (512 bytes). Parses 10 high score entries,
+; each containing 3-char initials and 6-char score string. Stores
+; initials in p6cfa table and scores in p6cce via o42d1 (atoi).
+; If file doesn't exist or is invalid ('s' signature check at p215o),
+; initializes all entries to zero.
+;----------------------------------------------------------------------------
 o37cf:
   PUSH BP
   SUB SP,0xc
@@ -6520,6 +6825,16 @@ o38d8:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o38ef — Difficulty progression
+; Decrements p6c98 (level countdown timer). When it reaches zero,
+; advances to the next difficulty tier based on p6c96:
+;   tier 2 → 3: slower enemies, 4 field sections
+;   tier 3 → 5: medium enemies, 2 field sections  
+;   tier 5 → 2: fastest enemies, 1 section
+; Each tier sets a new countdown (p6c98) and calls o2ff4 to update
+; the playing field, then o3aof to change the diamond indicator.
+;----------------------------------------------------------------------------
 o38ef:
   PUSH BP
   SUB SP,2
@@ -6645,6 +6960,12 @@ o3ao7:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o3aof — Diamond/difficulty indicator display
+; Draws the correct diamond sprite variant based on current difficulty
+; tier (p6c96). Tier 2 = p6d26 sprite, Tier 3 = p6d67, Tier 5 = p6da8.
+; Diamond drawn at fixed position (x=0x8a, y=1) via oc83 (sprite draw).
+;----------------------------------------------------------------------------
 o3aof:
   PUSH BP
   MOV BP,SP
@@ -6692,6 +7013,14 @@ o3a63:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o3a65 — New high score check and entry
+; Compares current score (p6c86/88) against existing high scores
+; (p6cf6/f8). If score qualifies, flashes "NEW HIGH SCORE" text
+; (p6dfe) with color cycling, prompts for initials via o57d5,
+; then resets palette and calls o3fb8 (initial entry screen) and
+; o415b (insert score into table).
+;----------------------------------------------------------------------------
 o3a65:
   PUSH BP
   SUB SP,8
@@ -6867,6 +7196,13 @@ o3bce:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o3bd3 — Bonus score calculation
+; Awards bonus points for territory claims based on percentage.
+; Formula: bonus = (score/10 - 80) × 1000, minimum 0.
+; Adds bonus to total score (p6c86/88). If player initialled,
+; shows bonus breakdown text with multiple formatted strings.
+;----------------------------------------------------------------------------
 o3bd3:
   PUSH BP
   SUB SP,0xc
@@ -6978,6 +7314,12 @@ o3cbe:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o3cc3 — Score display
+; Renders the current score on screen using o4b72 (digit rendering).
+; Breaks the score value into individual digits and draws each one
+; at the appropriate position in the score area (top of screen).
+;----------------------------------------------------------------------------
 o3cc3:
   PUSH BP
   MOV BP,SP
@@ -7061,6 +7403,12 @@ o3d7o:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o3d8b — Lives display
+; Draws remaining player lives as small icons. Calls o58a4 to get
+; lives count, then iterates 1-4 drawing filled (o3o23) or empty
+; (o2fff) life indicators based on remaining count.
+;----------------------------------------------------------------------------
 o3d8b:
   PUSH BP
   SUB SP,6
@@ -7091,6 +7439,12 @@ o3dc3:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o3dc8 — Level counter display
+; Renders the current level number on screen. Decomposes the level
+; value into hundreds/tens/ones digits, draws each via o4b72.
+; Also draws the diamond sprite (p6de9) at x=0x7b as a separator.
+;----------------------------------------------------------------------------
 o3dc8:
   PUSH BP
   SUB SP,0xc
@@ -7164,6 +7518,13 @@ o3e2f:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o3e6d — High score screen display
+; Shows the "HIGH SCORES" table. Draws a decorative border, displays
+; the heading (p6e28), then iterates through all 10 entries (1-10),
+; formatting each with rank, initials (from p6cfa), and score.
+; Used both during attract mode and after game over.
+;----------------------------------------------------------------------------
 o3e6d:
   PUSH BP
   SUB SP,6
@@ -7314,6 +7675,13 @@ o3fad:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o3fb8 — High score name entry screen
+; Displays the "ENTER YOUR INITIALS" prompt with "PRESS RETURN"
+; instruction. Draws at y=0x1e..0x50 area. Shows cursor-blinking
+; character input fields. Calls into text rendering (o4feb) and
+; color setting (o5odd) for visual feedback.
+;----------------------------------------------------------------------------
 o3fb8:
   PUSH BP
   SUB SP,0xa
@@ -7498,6 +7866,12 @@ o414e:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o415b — Insert score into high score table
+; Compares current score against all 10 table entries (p6cca/ccc),
+; shifts lower entries down, inserts new score and initials at
+; the correct rank position. Writes updated table via o1oc3.
+;----------------------------------------------------------------------------
 o415b:
   PUSH BP
   SUB SP,0xa
@@ -7713,6 +8087,14 @@ o4356:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o435e — Sound event dispatcher
+; Called each frame from the main level loop. Manages sound enable/
+; disable state (pco flag → p6e5a). When sound mode changes (p38c2
+; vs p6e56), calls o44f4 (configure PIT), o45e2 (set waveform),
+; and o4964 (play current sound). Silences speaker via o4b46/o49f7
+; when sound is disabled.
+;----------------------------------------------------------------------------
 o435e:
   PUSH BP
   SUB SP,2
@@ -7782,6 +8164,15 @@ o43c7:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o4427 — Sound system initialization
+; Programs PIT Timer Channel 2: B6h→43h (square wave mode), frequency
+; 0x0020→42h. Enables PC speaker gate: port 61h OR 3.
+; Programs PIT Timer Channel 0: 36h→43h (rate generator), sets timer
+; period to 0x8000 (half the normal 65536 rate = ~36.4 Hz).
+; Initializes all sound state variables (p6e5a-p6e86, p38bc).
+; Calls o49f7 (silence speaker), o43c7 (reset sequences), o4a8c.
+;----------------------------------------------------------------------------
 o4427:
   PUSH BP
   SUB SP,4
@@ -7822,6 +8213,11 @@ o4427:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o44ce — Sound parameter defaults
+; Sets default envelope: p6e86=15 (volume), p6e66=1 (attack),
+; p6e68=5 (decay), p6e6a=0 (sustain flag). Base frequency = 2000.
+;----------------------------------------------------------------------------
 o44ce:
   PUSH BP
   MOV BP,SP
@@ -7835,6 +8231,12 @@ o44ce:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o44f4 — Sound frequency updater
+; Adjusts current frequency (p6e62) toward target (p6e64) in steps
+; of 5. When frequencies match, decrements envelope and eventually
+; silences. Programs PIT Channel 2 with new frequency.
+;----------------------------------------------------------------------------
 o44f4:
   PUSH BP
   SUB SP,4
@@ -8143,6 +8545,11 @@ o48b8:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o48bd — Death sound effect initialization
+; Disables sustain (p6e6a=0), silences speaker (o49f7), sets up
+; descending tone sweep starting at 300 Hz (p6e7o=0x12c).
+;----------------------------------------------------------------------------
 o48bd:
   PUSH BP
   MOV BP,SP
@@ -8153,6 +8560,12 @@ o48bd:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o48d7 — Death sound effect step
+; Plays current death tone (p6e7o) via o4b13, waits (delay1),
+; plays low click (0x28), then increases tone pitch: p6e7o += p6e7o/100.
+; Called repeatedly to produce descending "dying" warble.
+;----------------------------------------------------------------------------
 o48d7:
   PUSH BP
   SUB SP,2
@@ -8174,6 +8587,11 @@ o48d7:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o49oa — Birth/spawn sound effect initialization  
+; Disables sustain (p6e6a=0), silences speaker (o49f7), sets up
+; ascending tone: start=2000 (p6e72), end=1000 (p6e74).
+;----------------------------------------------------------------------------
 o49oa:
   PUSH BP
   MOV BP,SP
@@ -8185,6 +8603,13 @@ o49oa:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o492a — Birth/spawn sound effect step
+; Sets sound mode 2 (toggle/square wave), programs frequency from
+; p6e72 into p6e82, duration from p6e74 into p6e84. Each call
+; sweeps: freq decreases by freq/50, duration increases by dur/50.
+; Calls o4964 to program PIT, then delay2 for timing.
+;----------------------------------------------------------------------------
 o492a:
   PUSH BP
   SUB SP,2
@@ -8207,6 +8632,15 @@ o492a:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o4964 — Main sound programmer
+; If sound enabled (p6e5a≠0): calls o4a3c (envelope update),
+; programs PIT Channel 2 frequency from p6e82 via o4b46,
+; clamps minimum duration (500 for mode 2, 1000 for mode 1),
+; programs PIT Channel 0 timer period from p6e84 (controls
+; INT 8 callback rate = how often sound steps occur).
+; Also manages volume/envelope decay (p6e86).
+;----------------------------------------------------------------------------
 o4964:
   PUSH BP
   SUB SP,4
@@ -8366,6 +8800,16 @@ o4b46:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o4b72 — Digit character renderer (0-9)
+; Draws a single digit at the given screen position.
+;   [BP+6] = digit value (0-9)
+;   [BP+8] = x position (shifted left 2 = ×4 pixel spacing)
+;   [BP+0xa] = color
+; Looks up bitmap pointer from o4c61 table (10 entries, each
+; pointing to a 2×5 pixel digit bitmap: p6eb4..p6f2o).
+; Draws via oc83 (sprite draw).
+;----------------------------------------------------------------------------
 o4b72:
   PUSH BP
   SUB SP,2
@@ -8393,6 +8837,18 @@ o4c61:
   DW p6eb4,p6eco,p6ecc,p6ed8,p6ee4
   DW p6efo,p6efc,p6fo8,p6f14,p6f2o
 
+;----------------------------------------------------------------------------
+; o4c8a — Full character renderer (ASCII 0x20-0x5F)
+; Draws a single character at given position using oc83 (sprite draw).
+;   [BP+4] = ASCII character code
+;   [BP+6] = x position
+;   [BP+8] = color
+; Uses lookup table o4f54 (64 entries) mapping ASCII 0x20..0x5F
+; to bitmap pointers. Each character bitmap is 5×7 pixels.
+; Bitmaps for A-Z at p6f2c..p72c9, digits use separate digit bitmaps,
+; special chars (space, period, slash, etc.) also included.
+; Returns silently if character is out of range or pointer is NULL.
+;----------------------------------------------------------------------------
 o4c8a:
   PUSH BP
   MOV BP,SP
@@ -8426,6 +8882,15 @@ o4f54:
   DW p71eb,p721o,p7235,p725a,p727f
   DW p72a4,p72c9,0,0,0,0,p7338
 
+;----------------------------------------------------------------------------
+; o4feb — Text string printer
+; Renders a NUL-terminated string character by character.
+;   [BP+0xa] = pointer to string
+;   [BP+0xc] = x start position
+;   [BP+0xe] = color
+; Characters are spaced 10 pixels apart (BX += char_index × 10).
+; Calls o4c8a for each character.
+;----------------------------------------------------------------------------
 o4feb:
   PUSH BP
   SUB SP,6
@@ -8456,6 +8921,13 @@ o5o24:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o5o29 — Color palette cycling (attract mode animation)
+; Cycles the text/sprite color palette index through colors 9-14
+; using modular arithmetic: color = ((input+1) % 6) + 9.
+; Applies the color to letter bitmaps (p7ooa = 'G' bitmap) via o521a.
+; Creates the animated rainbow text effect on the title screen.
+;----------------------------------------------------------------------------
 o5o29:
   PUSH BP
   SUB SP,2
@@ -8543,6 +9015,14 @@ o5o29:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o5odd — Set border/sprite/text color
+; Sets the drawing color for border elements and character bitmaps.
+;   [BP+4] = color index (0-15)
+; Applies the color to letter bitmaps A-G (p6f2c..p7ooa) by calling
+; o521a for each. This changes the draw color for subsequent text
+; and border rendering operations.
+;----------------------------------------------------------------------------
 o5odd:
   PUSH BP
   MOV BP,SP
@@ -8806,6 +9286,19 @@ o5562:
   POP BP
   RET
 
+;============================================================================
+; o556a — MAIN GAME ENTRY POINT / STARTUP
+; This is where execution begins after the DOS loader.
+; Initialization sequence:
+;   1. Set p74d8=0xAF (game ID/flag)
+;   2. Call o4c3 (additional setup)
+;   3. Call o44b with mode 0 (set CGA text mode, unused on PC1)
+;   4. Install INT 9 keyboard handler (ocec)
+;   5. Clear last-scancode (pc3)
+;   6. Load high scores from STYX.SCO (o37cf)
+;   7. Initialize sound system (o4427)
+; Then falls through to the attract mode loop at o55a8.
+;============================================================================
 o556a:
   PUSH BP
   SUB SP,0xa
@@ -8821,6 +9314,14 @@ o556a:
   MOV byte [pc3],0
   CALL o37cf
   CALL o4427
+;----------------------------------------------------------------------------
+; o55a8 — Attract mode loop (title screen)
+; Loops showing title screen (o1142 = RLE-decoded STYX logo) and
+; high score table (o3e6d). Waits for keypress (pc3 checked).
+; On keypress (non-release, bit 7 clear), transitions to o55do
+; (game initialization).
+; On no keypress (or release), cycles back to redraw title.
+;----------------------------------------------------------------------------
 o55a8:
   MOV AL,byte [pc3]
   TEST AL,AL
@@ -8838,6 +9339,22 @@ o55b6:
   OUT DX,AL    ;Border colour 0
   CALL o1142
   CALL o3e6d
+;----------------------------------------------------------------------------
+; o55do — Game initialization
+; Sets up a new game session:
+;   1. Calls o3575 (reset controller) and o364c (wait for button release)
+;   2. Clears last-scancode, disables VRAM writes
+;   3. Loads BMP background (load_bmp_background)
+;   4. Enters PC1 hidden 160×200×16 graphics mode (o543)
+;   5. Clears screen with color 6 (o8c1)
+;   6. Draws game border: double rectangle at (1,9)-(0x9E,0x62)
+;      outer border color 7, inner border 2 pixels inside
+;   7. Sets initial state: level=1, lives=3
+;   8. Resets difficulty (o38d8), sound (o43c7)
+;   9. Calls o57b5 (level setup), enables VRAM writes
+;  10. Activates BMP palette if BMP was loaded
+;  11. Refreshes screen (o5c3), falls through to o56dd level loop
+;----------------------------------------------------------------------------
 o55do:
   CALL o3575
   CALL o364c
@@ -8962,6 +9479,27 @@ o55do:
   CALL set_bmp_game_palette
 .no_bmp_pal:
   CALL o5c3
+;============================================================================
+; o56dd — MAIN LEVEL LOOP
+; Core game loop that runs continuously during gameplay.
+; Structure per iteration:
+;   1. Check lives (p74d2) — if 0, jump to o57af (game over → attract)
+;   2. Clear death flag (p74do=0)
+;   3. Inner loop (o56ed): repeats while player alive (p74do=0)
+;      and level not complete (p74d6=0):
+;      - Call o21do (player movement) × 4 times
+;      - Call o135f (enemy AI) × 3 times
+;      - Call o435e (sound update) × 3 times
+;      - Call o1bo9 (tail movement) × 4 times
+;      - Call o38ef (difficulty progression)
+;      - Call o58ac (F1 pause check)
+;   4. On death (p74do≠0): wobble effect (o297a), flash (o1f25),
+;      erase enemies (o1dcb), decrement lives, update score
+;   5. On level complete (p74d6≠0): silence sound (o49f7),
+;      flash (o1f25), fill remaining (o28bc), award bonus (o3bd3),
+;      pause (o57d5), advance level, redraw field, loop back
+;   6. On game over: check high score (o3a65), return to o55a8
+;============================================================================
 o56dd:
   CMP word [p74d2],0
   JNZ o56e7
@@ -8991,6 +9529,9 @@ o56ed:
   CALL o38ef
   CALL o58ac
   JMP o56ed
+;--- o5739: Player death handler ---
+; Runs wobble effect (o297a), screen flash (o1f25), erases enemies
+; (o1dcb), decrements lives counter (p74d2), updates score display.
 o5739:
   CMP word [p74do],0
   JZ o575o
@@ -8999,6 +9540,11 @@ o5739:
   CALL o1dcb
   DEC word [p74d2]
   CALL o3cc3
+;--- o575o: Level complete handler ---
+; Silences sound (o49f7), flashes screen (o1f25), fills remaining
+; territory (o28bc), calculates bonus (o3bd3), pauses (o57d5),
+; advances level (p74d4, max 9), clears screen row-by-row,
+; resets to CGA palette, sets up next level (o57b5), refreshes.
 o575o:
   CMP word [p74d6],0
   JZ o56dd
@@ -9167,6 +9713,14 @@ o58a4:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o58ac — F1 pause handler
+; Checks if F1 key was pressed (pbd flag). If so:
+;   - Saves sound state and silences speaker
+;   - Enters wait loop until F1 pressed again
+;   - Restores sound state on unpause
+; During pause, polls keyboard via pc3 and F1 flag (pbd).
+;----------------------------------------------------------------------------
 o58ac:
   PUSH BP
   SUB SP,4
@@ -9256,6 +9810,12 @@ o598d:
   JNZ o597o
   RET
 
+;----------------------------------------------------------------------------
+; o5993 — 32-bit multiply (floating-point)
+; Multiplies two 32-bit floating-point values. Used by the printf
+; formatter and bonus score calculations. Handles sign, mantissa
+; multiplication, and exponent addition with normalization.
+;----------------------------------------------------------------------------
 o5993:
   PUSH BP
   PUSH DI
@@ -9643,6 +10203,12 @@ o5c92:
   JNZ o5c62
   RET
 
+;----------------------------------------------------------------------------
+; o5ca2 — 32-bit divide (floating-point)
+; Divides two 32-bit floating-point values. Handles sign, mantissa
+; division via repeated subtraction, exponent subtraction with
+; normalization. Returns quotient in standard FP format.
+;----------------------------------------------------------------------------
 o5ca2:
   PUSH BP
   PUSH DI
@@ -9802,6 +10368,11 @@ o5ef4:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o5f1b — 32-bit add (floating-point)
+; Adds two 32-bit floating-point values. Aligns exponents,
+; adds mantissas, normalizes result. Handles sign and overflow.
+;----------------------------------------------------------------------------
 o5f1b:
   PUSH BP
   PUSH DI
@@ -9937,6 +10508,14 @@ o6o4b:
   POP BP
   RET 2
 
+;----------------------------------------------------------------------------
+; o6o56 — Printf-like string formatter
+; C-library-style printf implementation supporting format specifiers:
+;   %d (signed decimal), %u (unsigned decimal), %x (hex),
+;   %o (octal), %s (string), %c (char), %f/%e/%g (float).
+; Dispatch table at o6493. Output goes to buffer pointed by [BP+8].
+; Used for formatting score strings and debug output.
+;----------------------------------------------------------------------------
 o6o56:
   PUSH BP
   SUB SP,0x10c
@@ -10007,6 +10586,15 @@ o6oec:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o6of2 — 32-bit unsigned compare
+; Compares DX:BX against CX:AX (unsigned). Sets flags for
+; JLE/JGE/JZ conditional jumps. Used extensively for score
+; comparisons and boundary checks.
+;   Returns: flags set as if CMP was performed on 32-bit values
+;   DX:BX = first value, CX:AX = second value (swapped from
+;   what you might expect — checks if first >= second).
+;----------------------------------------------------------------------------
 o6of2:
   PUSH AX
   XOR AX,CX
@@ -10854,6 +11442,12 @@ o688b:
   POP BP
   RET
 
+;----------------------------------------------------------------------------
+; o689c — Floating-point normalize
+; Normalizes a floating-point value by shifting mantissa left until
+; the high bit is set, adjusting the exponent accordingly.
+; Used after FP arithmetic operations.
+;----------------------------------------------------------------------------
 o689c:
   PUSH CX
   MOV SI,AX
@@ -10880,6 +11474,11 @@ o68bf:
   OR AX,0x8000
   RET
 
+;----------------------------------------------------------------------------
+; o68ce — Floating-point denormalize
+; Denormalizes a floating-point value by shifting mantissa right
+; and incrementing the exponent. Inverse of o689c.
+;----------------------------------------------------------------------------
 o68ce:
   AND DI,0x8000
   PUSH DI
@@ -11269,6 +11868,29 @@ o6d52:
 ; If the file is missing or invalid, bmp_loaded stays 0 and the game
 ; continues with normal solid-color territory display.
 ;============================================================================
+;============================================================================
+; load_bmp_background — BMP Background Image Loader
+; Loads an optional STYX.BMP file to use as the background image
+; that is revealed when territory is claimed.
+;
+; Supports: 4-bit uncompressed BMP, 160×200 or 320×200 resolution.
+; For 320-wide BMPs, downsamples to 160 by skipping every other pixel.
+;
+; Process:
+;   1. Opens bmp_filename ("STYX.BMP") via DOS INT 21h
+;   2. Reads 118-byte BMP header into bmp_hdr
+;   3. Validates: must be 4-bit, uncompressed (BI_RGB)
+;   4. Converts BGRA palette to V6355D format (convert_bmp_palette)
+;   5. Reads rows bottom-up (BMP format) into CGA-interlaced layout:
+;      - Even rows → bmp_background[y/2 * 80]
+;      - Odd rows  → bmp_background[0x2000 + y/2 * 80]
+;   6. For 320-wide: reads full row into bmp_row_buf, copies every
+;      other nibble to produce 80-byte output row
+;   7. Sets bmp_loaded = 1 on success
+;
+; The bmp_background buffer (16000 bytes) mirrors the VRAM layout
+; so pixels can be directly substituted during screen refresh.
+;============================================================================
 load_bmp_background:
   PUSH BP
   MOV BP,SP
@@ -11443,6 +12065,14 @@ load_bmp_background:
 ; game's hardcoded color indices (0,7,12,15) get visually
 ; appropriate colors chosen by brightness analysis.
 ;============================================================================
+;----------------------------------------------------------------------------
+; convert_bmp_palette — BMP BGRA to V6355D palette format
+; Converts 16-color BMP palette (4 bytes per entry: B,G,R,A) stored
+; in bmp_hdr+54 to the V6355D 2-byte format in bmp_palette.
+;   Byte 0: Red   = (R >> 5) & 7    (3-bit, port DEh byte 1)
+;   Byte 1: Green = ((G >> 5) & 7) << 4  |  Blue = (B >> 5) & 7
+;           (port DEh byte 2: bits 4-6=green, bits 0-2=blue)
+;----------------------------------------------------------------------------
 convert_bmp_palette:
   PUSH AX
   PUSH BX
@@ -11488,6 +12118,15 @@ convert_bmp_palette:
 ;============================================================================
 ; Set V6355 palette from BMP data (bmp_palette, 32 bytes)
 ;============================================================================
+;----------------------------------------------------------------------------
+; set_bmp_game_palette — Apply BMP palette for gameplay
+; Called after BMP loading to set up the palette.
+; Rearranges the BMP palette so game-critical color indices
+; get appropriate brightness levels (via rearrange_palette_for_game),
+; then programs the V6355D palette registers from bmp_palette.
+; Outputs 32 bytes to port DEh (16 colors × 2 bytes each),
+; bracketed by port DDh control: 40h=open, 80h=close.
+;----------------------------------------------------------------------------
 set_bmp_game_palette:
   PUSH AX
   PUSH CX
@@ -11526,6 +12165,29 @@ set_bmp_game_palette:
 ; All 16 original BMP colors are preserved by swapping indices.
 ; After palette rearrangement, remaps all pixel data in bmp_background.
 ; Brightness = R + G + B  (each 0-7, total range 0-21)
+;============================================================================
+;============================================================================
+; rearrange_palette_for_game — Brightness-based palette rearrangement
+; Ensures game-critical color indices have appropriate brightness:
+;   Index 0  ← darkest color  (background)
+;   Index 15 ← brightest color (text, player)
+;   Index 7  ← 2nd brightest  (border)
+;   Index 12 ← 3rd brightest  (trail/path)
+;
+; Algorithm:
+;   1. Calculate brightness for each of 16 colors: R + G + B
+;      (from bmp_palette, where R=byte0, G=byte1>>4, B=byte1&7)
+;   2. Find darkest → swap with index 0 in bmp_palette
+;   3. Find brightest → swap with index 15
+;   4. Find 2nd brightest → swap with index 7
+;   5. Find 3rd brightest → swap with index 12
+;   6. Build pal_remap[old_index] = new_index table
+;   7. Build pal_inv_remap[new_index] = old_index (inverse)
+;   8. Remap all 16000 bytes of bmp_background using pal_inv_remap
+;      (each byte = 2 pixels × 4 bits, both nibbles remapped)
+;
+; This ensures the BMP image looks correct while the game
+; can use its hardcoded color indices for gameplay elements.
 ;============================================================================
 rearrange_palette_for_game:
   PUSH AX
@@ -11716,6 +12378,57 @@ rearrange_palette_for_game:
 
 codeend:
 
+;============================================================================
+;                        DATA SECTION
+;============================================================================
+; All game state variables, lookup tables, sprite bitmaps, string
+; constants, and buffers. Variables use the original Styx naming
+; convention: 'p' prefix + hex offset (from original binary).
+;
+; KEY VARIABLE GROUPS:
+;   p46          = Error message strings
+;   p79/p7b/p87  = CGA CRTC register tables
+;   p95-pab      = Temporary variables for line drawing algorithm
+;   pbo-pbf      = Keyboard pressed flags (0xFF = currently held)
+;   pco          = Sound enabled flag (0xFF = on)
+;   pc1          = Key event pending flag
+;   pc3          = Last keyboard scancode received
+;   pc9          = CGA snow wait skip (FFFFh on V6355D = no snow)
+;   pcb          = VRAM write enable flag
+;   pd3/pd4      = Direction state (0=R,2=D,4=L,6=U,1/3/5/7=diag)
+;   pd5/pd7      = Joystick axis values
+;   pdd          = Keyboard scancode dispatch table (29 entries)
+;   p12e         = Shadow VRAM buffer (8000 bytes)
+;   pc1_cga_colors = V6355D palette table (16 colors × 2 bytes)
+;   p215o        = File I/O buffer (512 bytes, STYX.SCO)
+;   p2354        = RLE-encoded title screen bitmap
+;   p38bc-p38c5  = Sound state (mode, timer, counter, pulse)
+;   p38ca-p38f6  = Enemy state arrays (2 enemies max)
+;   p38f8        = Enemy trail ring buffer (128 words)
+;   p39f8-p3ao8  = Tail segment state arrays
+;   p3a1o        = Path recording buffer (358 words)
+;   p3cf8/cfa    = Player x/y position
+;   p3doo-p3d24  = Player movement state machine variables
+;   p4cc4/p64a8  = General-purpose buffers (1000 words each)
+;   p5c64/p5c7f  = Border pattern data
+;   p5c9a-p5cd8  = Floating-point temp storage & constants
+;   p6c78-p6c9a  = Joystick calibration & game control state
+;   p6c9c        = High score initials entry buffer
+;   p6cca-p6cf8  = High score table (10 entries × score + initials)
+;   p6d26/d67/da8= Enemy sprite bitmaps (3 color variants, 9×7)
+;   p6de9        = Diamond sprite (3×5)
+;   p6dfa-p6e53  = Game text strings
+;   p6e56-p6e86  = Sound envelope/frequency state
+;   p6e88-p6eao  = Floating-point math constants
+;   p6eb4-p6f2o  = Digit bitmaps 0-9 (each 2×5 pixels)
+;   p6f2c-p74aa  = Letter bitmaps A-Z + symbols (each 5×7 pixels)
+;   p74do        = Death flag, p74d2 = Lives, p74d4 = Level
+;   p74da        = "PRESS ANY KEY" string
+;   p751c        = C-style character type table (256 bytes)
+;   p761e        = Hex digit string "0123456789ABCDEF"
+;   bmp_*        = BMP background system variables (at end)
+;============================================================================
+
 section .data vstart=0 align=16 follows=.text
 
 ; === DATA.ASM ===
@@ -11750,6 +12463,7 @@ section .data vstart=0 align=16 follows=.text
 ; PUBLIC p,p2,p4,p46
 
 
+;--- Misc pointers (stack/segment setup temps) ---
 p:
   DW 0
 p2:
@@ -11760,15 +12474,19 @@ p4:
 ; p6:
    times 0x40 DB 0
 
+;--- Error message strings (debug/diagnostic) ---
 p46:
   DB "error in sine    %d  ",10,13,0
   DB "error in sine value gen ",10,13,0
+;--- CGA CRTC register initialization tables ---
+; p79/p7b: 80-column mode registers; p87: 40-column mode registers
 p79:
   DB 113,80
 p7b:
   DB 89,10,124,6,100,112,2,1,32,0,0,0
 p87:
   DB 56,40,45,10,127,6,100,112,2,1,32,0,0,0
+;--- Line drawing algorithm temporaries (p95-pab) ---
 p95:
   DW 0
 p97:
@@ -11805,6 +12523,9 @@ pab:
 ;  pae:
 ;    DB 0,0
 
+;--- Keyboard state flags (pbo-pbf) ---
+; Each byte: 0x00 = released, 0xFF = currently pressed
+; Mapped from INT 9 handler via scancode dispatch
 pbo:
   DB 0
 pb1:
@@ -11837,6 +12558,7 @@ pbe:
   DB 0
 pbf:
   DB 255
+;--- Sound enabled flag: 0xFF = sound on, 0x00 = muted ---
 pco:
   DB 255
 pc1:
@@ -11863,6 +12585,11 @@ pcf:
   DW 0
 pd1:
   DW 0
+;--- Direction / input state ---
+; pd3: current direction (0=right,2=down,4=left,6=up,odd=diagonal)
+; pd4: previous direction
+; pd5/pd7: joystick X/Y axis raw values
+; pd9/pdb: joystick button / misc input state
 pd3:
   DB 0
 pd4:
@@ -11876,6 +12603,9 @@ pd9:
 pdb:
   DW 0
 
+;--- INT 9 keyboard scancode dispatch table ---
+; 29 entries × 3 bytes: [scancode DB] [handler DW]
+; Make codes (bit 7=0) set flags; break codes (bit 7=1) clear them.
 pdd:
   DB 0x4b
   DW od7o
@@ -11935,6 +12665,12 @@ pdd:
   DW oebe
   DB 0xb9
   DW oec9
+;--- Shadow VRAM buffer (8000 bytes) ---
+; All game rendering writes here first, then o5c3 copies to real VRAM.
+; Layout mirrors V6355D interlaced format:
+;   Bytes 0-3999:    even scanlines (rows 0,2,4,...198)
+;   Bytes 4000-7999:  odd scanlines (rows 1,3,5,...199)
+;   Each row = 80 bytes = 160 pixels × 4 bits/pixel
 p12e:
   times 8000 DB 0
 
@@ -11969,6 +12705,8 @@ pc1_cga_colors:
 ;  p214f:
 ;    DB 0
 
+;--- File I/O buffer (512 bytes) ---
+; Used for reading/writing STYX.SCO high score file
 p215o:
   times 512 DB 0
 
@@ -11977,6 +12715,10 @@ p215o:
 ;  p2351:
 ;    DB 0,100,21
 
+;--- RLE-encoded title screen bitmap ---
+; Decoded by o1142 to render the STYX logo on the attract screen.
+; Format: 254,count,value = repeat 'value' 'count' times;
+;         other bytes = literal pixel data.
 p2354:
   DB 254,48,0,10,254,26,170
   DB 128,254,52,0,160,254,26,170,168,254,52,0,170,254,79,0
@@ -12322,6 +13064,12 @@ p2354:
   DB 0,192,12,0,3,192,252,0,15,0,0,15,3,192,254,4
   DB 0,60,0,15,3,254,3,195,192,254,0,0,0,0,0,0
   DB 0 ;Not precisely sure where this RLE bitmap ends
+;--- Sound state variables ---
+; p38bc: sound mode (0=off, 1=timed pulse, 2=toggle square wave)
+; p38be: current PIT timer value
+; p38co: sound step counter
+; p38c2: sound type/event ID
+; p38c3: previous sound type
 p38bc:
   DW 0
 p38be:
@@ -12338,6 +13086,19 @@ p38c3:
 ;  p38c7:
 ;    DB 0,0,0
 
+;--- Enemy state arrays (2 enemies max, DW × 2 each) ---
+; p38ca/cc: enemy X positions [0], [1]
+; p38ce/do: enemy Y positions [0], [1]
+; p38d2:    enemy X velocity (pair)
+; p38d6:    enemy Y velocity (pair)
+; p38da:    enemy direction (pair)
+; p38de:    direction delta / turning rate (pair)
+; p38e2:    direction change rate (pair)
+; p38e6:    current speed (pair)
+; p38ea:    target speed (pair)
+; p38ee:    sprite frame (pair)
+; p38f2:    animation counter (pair)
+; p38f6:    misc enemy state
 p38ca: ;Array
   DW 0
 p38cc:
@@ -12366,8 +13127,19 @@ p38f2: ;Array
   DW 0,0
 p38f6:
   DW 0
+;--- Enemy trail ring buffer (128 words) ---
+; Records recent enemy positions for visual trail effect
 p38f8:
   times 128 DW 0
+;--- Tail segment state arrays ---
+; Tracks the player's tail segments during territory claiming.
+; Each pair is [current][previous] for 2 segments.
+; p39f8/fa: segment X position
+; p39fc/fe: segment Y position
+; p3aoo/o2: segment direction
+; p3ao4/o6: segment speed
+; p3ao8:    segment state flags
+; p3aoc/oe: segment counters
 p39f8: ;Array
   DW 0
 p39fa:
@@ -12390,6 +13162,10 @@ p3aoc: ;Array
   DW 0
 p3aoe: ;Array
   DW 0
+;--- Path recording buffer (358 words) ---
+; Records the player's path coordinates during territory claiming.
+; Each entry is an x,y coordinate pair. Used by flood fill to
+; determine which side of the path to fill.
 p3a1o:
   times 358 DW 0
 p3cdc: ;Array
@@ -12410,6 +13186,9 @@ p3cf4:
   DW 0
 p3cf6:
   DW 0
+;--- Player position ---
+; p3cf8: player X coordinate (pixels)
+; p3cfa: player Y coordinate (pixels)
 p3cf8:
   DW 0
 p3cfa:
@@ -12418,6 +13197,17 @@ p3cfc:
   DW 0
 p3cfe:
   DW 0
+;--- Player movement state machine variables ---
+; p3doo: current direction (0-7)
+; p3do2: pause/frozen flag
+; p3do4: movement enabled (1=moving)
+; p3do6: on-border flag
+; p3do8: last direction
+; p3doa-p3doe: saved state for territory claiming
+; p3d1o-p3d12: movement delta X/Y
+; p3d14: movement speed
+; p3d16: territory state (2=safe on border, 1=in open, 0=claiming)
+; p3d18-p3d24: additional movement/turn state
 p3doo:
   DW 0
 p3do2:
@@ -12456,6 +13246,7 @@ p3d22:
   DW 0
 p3d24:
   times 1000 DW 0
+;--- General-purpose buffer (1000 words) ---
 p4cc4:
   times 1000 DW 0
 p5c64:
@@ -12514,6 +13305,18 @@ p5cd8:
   times 1000 DW 0
 p64a8:
   times 1000 DW 0
+;--- Joystick calibration & game control state ---
+; p6c78: current effective direction (combined kb/joy)
+; p6c7a/7c/7e/8o: joystick center calibration values
+; p6c82: joystick enabled flag
+; p6c84: action/fire button active flag
+; p6c86/88: current score (32-bit, low/high word)
+; p6c8a/8c: previous score checkpoint
+; p6c8e/9o: misc game state
+; p6c92/94: score tracking for bonus calculations
+; p6c96: difficulty tier (2/3/5)
+; p6c98: difficulty countdown timer
+; p6c9a: input timeout flag
 p6c78:
   DW 0
 p6c7a:
@@ -12571,6 +13374,9 @@ p6cfa:
   DB 46,46,0,46,46,46,0,46,46,46,0,46,46,46,0,46
   DB 46,46,0,46,46,46,0,46,46,46,0,46,46,46,0,46
   DB 46,46,0,46,46,46,0,46,46,46,0
+;--- Enemy sprite bitmaps (9×7 pixels, 3 color variants) ---
+; p6d26: variant 1, p6d67: variant 2, p6da8: variant 3
+; Each sprite: width(DW)=9, height(DW)=7, then 7 rows of pixel data
 p6d26:
   DB 9,7,17,17,17
   DB 17,17,17,17,17,17,17,17,1,17,1,17,1,17,17,17
@@ -12589,9 +13395,13 @@ p6da8:
   DB 34,34,32,32,34,34,2,32,32,34,34,34,2,34,34,2
   DB 32,32,34,34,32,32,34,34,2,32,32,34,34,2,34,2
   DB 34,2,32,0,34,34,34,34,34,34,34,34,34,34
+;--- Diamond sprite (3×5 pixels) ---
+; Used as level/difficulty indicator icon
 p6de9:
   DB 3,5
   DB 15,0,15,0,0,240,0,15,0,0,240,0,15,0,15
+;--- Game text strings ---
+; p6dfa: game UI labels ("NEW HIGH SCORE", "GAME OVER", etc.)
 p6dfa:
   DB 46,46,46,0
 p6dfe:
@@ -12671,6 +13481,9 @@ p6e98:
 p6eao:
   DB 27,39,133,121,143,243,240,63
   DB 2,5,0,0,0,0,0,0,0,0,0,0
+;--- Digit character bitmaps 0-9 ---
+; Each: width(DW)=2, height(DW)=5, then 5 rows of pixel data
+; Used by o4b72 for score/number rendering
 p6eb4:
   DB 2,5,15,255,15,15,15,15,15,15,15,255
 p6eco:
@@ -12691,6 +13504,11 @@ p6f14:
   DB 2,5,15,255,15,15,15,255,15,15,15,255
 p6f2o:
   DB 2,5,15,255,15,15,15,255,0,15,0,15
+;--- Letter character bitmaps A-Z + special chars ---
+; Each: width(DW)=5, height(DW)=7, then 7 rows of pixel data
+; Used by o4c8a for in-game text rendering
+; A=p6f2c, B=p6f51, ... Z=p72c9
+; Special: space=p72ee, period=p7313, underscore=p7338, etc.
 p6f2c:
   DB 5,7
   DB 0,0,240,0,0
@@ -12858,6 +13676,12 @@ p74aa:
   DB 5,7,0,255,255,240,0,15,0,0,15,0,15,0,0,15,0
   DB 0,255,255,240,0,0,0,15,0,0,0,0,240,0,0,0
   DB 15,0,0,0,0
+;--- Game state flags ---
+; p74do: death flag (non-zero = player just died)
+; p74d2: remaining lives count
+; p74d4: current level number (1-9)
+; p74d6: level complete flag
+; p74d8: game ID/magic value (0xAF)
 p74do:
   DW 0
 p74d2:
@@ -12868,6 +13692,7 @@ p74d6:
   DW 0
 p74d8:
   DW 0
+;--- "PRESS ANY KEY" and other prompt strings ---
 p74da:
   DB "  PRESS ANY KEY ",0
 p74eb:
@@ -12878,6 +13703,9 @@ p74eb:
 ;  p751b:
 ;    DB 0
 
+;--- C-style character type classification table (256 bytes) ---
+; Used by printf formatter (o6o56) for character classification
+; (isdigit, isalpha, isspace, etc.)
 p751c:
   DB 0,32,32,32,32,32,32,32,32,32,40,40,40,40,40
   DB 32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32
@@ -12896,6 +13724,7 @@ p751c:
   DB 16,0,16,130,130,130,130,130,130,2,2,2,2,2,2,2
   DB 2,2,2,2,2,2,2,2,2,2,2,2,2,16,16,16
   DB 16,32,0
+;--- Hex digit string for printf %x format ---
 p761e:
   DB "0123456789ABCDEF",0,0
 p763o:
