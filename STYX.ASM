@@ -9373,6 +9373,15 @@ o556a:
   MOV byte [pc3],0
   CALL o37cf
   CALL o4427
+
+  ; Show loading splash screen (text mode)
+  MOV AX,0x0003                ;Set 80x25 text mode, clears screen
+  INT 0x10
+  MOV DX,ss_splash
+  MOV AH,0x09                  ;DOS print string
+  INT 0x21
+  MOV byte [ss_border_ctr],0
+
   CALL load_startup_bmp
   CMP byte [ss_loaded],0
   JZ o55a8
@@ -12860,6 +12869,14 @@ ss_analyze_image:
 
   CALL ss_analyze_scanline
 
+  ; C64-style border cycling: change border color each row
+  PUSH AX
+  MOV AL,[ss_border_ctr]
+  OUT 0xD9,AL
+  INC byte [ss_border_ctr]
+  AND byte [ss_border_ctr],0x0F
+  POP AX
+
   MOV AX,[ss_cur_row]
   OR AX,AX
   JZ .ai_done
@@ -13439,6 +13456,15 @@ ss_render_to_vram:
   LOOP .rv_8
 
 .rv_cv_done:
+
+  ; C64-style border cycling: change border color each row
+  PUSH AX
+  MOV AL,[ss_border_ctr]
+  OUT 0xD9,AL
+  INC byte [ss_border_ctr]
+  AND byte [ss_border_ctr],0x0F
+  POP AX
+
   MOV AX,[ss_cur_row]
   OR AX,AX
   JZ .rv_done
@@ -15530,6 +15556,39 @@ ss_bps_nxt_a:       DB 0          ;Temp: near line color A
 ss_bps_nxt_b:       DB 0          ;Temp: near line color B
 ss_bps_nxt_c:       DB 0          ;Temp: near line color C
 ss_filename:        DB "STYX.BMP",0
+ss_border_ctr:      DB 0            ;C64-style border color cycling counter
+
+;--- Loading splash screen (ANSI color codes) ---
+ss_splash:
+  DB 0x1B,'[2J',0x1B,'[H'          ;Clear screen, home cursor
+  DB 0x0D,0x0A
+  DB 0x0D,0x0A
+  DB 0x0D,0x0A
+  DB 0x0D,0x0A
+  DB 0x0D,0x0A
+  DB 0x0D,0x0A
+  DB 0x0D,0x0A
+  DB 0x0D,0x0A
+  DB '                              '
+  DB 0x1B,'[1;36m'                  ;Bright Cyan
+  DB 'Olivetti Prodest PC1'
+  DB 0x1B,'[0m',0x0D,0x0A
+  DB '                                '
+  DB 0x1B,'[1;33m'                  ;Bright Yellow
+  DB 'STYX Remastered'
+  DB 0x1B,'[0m',0x0D,0x0A
+  DB 0x0D,0x0A
+  DB '                              '
+  DB 0x1B,'[1;35m'                  ;Bright Magenta
+  DB 'RetroErik'
+  DB 0x1B,'[0m'
+  DB ' 2026',0x0D,0x0A
+  DB 0x0D,0x0A
+  DB 0x0D,0x0A
+  DB '                                '
+  DB 0x1B,'[1;33m'                  ;Bright Yellow
+  DB 'Loading...'
+  DB 0x1B,'[0m',0x0D,0x0A,'$'
 ss_pal_r:           times 256 DB 0 ;Red channel (0-255) per palette entry
 ss_pal_g:           times 256 DB 0 ;Green channel per palette entry
 ss_pal_b:           times 256 DB 0 ;Blue channel per palette entry
