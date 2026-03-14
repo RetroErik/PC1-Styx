@@ -24,6 +24,9 @@ This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and com
 ### Key modifications
 
 - **Startup screen**: Custom 8-bit BMP viewer using per-scanline V6355D palette reprogramming (CGA palette flip) in 320×200×4 mode, providing 3 independent colors per scanline from a 512-color palette. Animated raster bars (red and blue sine-wave gradients) scroll behind the STYX title letters. Falls back to the original RLE title if `STYX.BMP` is not found.
+- **Loading experience**: ANSI splash screen with C64-style border color cycling keeps the display active during both analysis and rendering passes. Off-screen rendering to a RAM buffer keeps the splash visible until the startup screen is ready — no visible blank screen during the transition.
+- **Bulk buffered file I/O**: BMP rows are read 10 at a time per DOS call, reducing 400 INT 21h calls to 40 and saving ~1 second of loading time on XT-IDE hardware.
+- **VRAM caching**: After the first render, the startup screen is saved to a DOS-allocated 16K memory segment. After game over, the startup screen is restored instantly from cache without re-reading the BMP file from disk.
 - All pixel plotting, reading, and masking routines rewritten for 4bpp format
 - VRAM segment changed from B800h to B000h
 - Hidden mode enable sequence added (port D8h)
@@ -53,6 +56,7 @@ Tunable parameters in the source (`STYX.ASM`):
 - `SS_BAR_START` — first scanline of bar zone (default 128)
 - `SS_BAR_END` — first scanline after bar zone (default 174)
 - `SS_BAR_HEIGHT` — height of each gradient bar (default 14)
+- `SS_BULK_ROWS` — rows per DOS read call for bulk buffering (default 10)
 
 ## Building
 

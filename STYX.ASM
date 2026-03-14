@@ -90,7 +90,7 @@
 ;                        BMP background loader (load_bmp_background)
 ;                        BMP palette conversion & rearrangement
 ;
-;  Lines ~12430-13727  Startup BMP screen engine (ss_* routines)
+;  Lines ~12430-13800  Startup BMP screen engine (ss_* routines)
 ;                        load_startup_bmp — Pass 1: analyze STYX.BMP
 ;                        show_startup_screen — Pass 2: render + display loop
 ;                        Per-scanline V6355D palette reprogramming using
@@ -100,6 +100,21 @@
 ;                          Zone 1b (48-127):  idle (colors converged)
 ;                          Zone 2  (128-173): E0 raster bars (animated)
 ;                          Zone 3  (174-199): idle
+;                        Loading experience:
+;                          ANSI splash screen (text mode) with C64-style
+;                          border color cycling during BMP analysis.
+;                          Off-screen rendering to bmp_background buffer
+;                          keeps splash visible during Pass 2. Quick mode
+;                          switch + REP MOVSW copy (~8ms) for seamless
+;                          transition to startup screen.
+;                        Bulk buffered file reads:
+;                          ss_read_bmp_row reads SS_BULK_ROWS (10) rows
+;                          per DOS INT 21h call, reducing 400 calls to 40.
+;                        VRAM caching:
+;                          DOS-allocated 16K segment caches the rendered
+;                          startup screen. After game over, the cached
+;                          image is restored instantly without re-reading
+;                          STYX.BMP from disk.
 ;
 ;  Lines ~13780+       .data section (DATA.ASM)
 ;                        All game state variables, buffers, sprite data,
@@ -116,6 +131,8 @@
 ;                          pc9      — CGA snow wait skip flag
 ;                          bmp_loaded/bmp_background — level BMP system
 ;                          ss_loaded/ss_palette_stream — startup BMP data
+;                          ss_vram_cache_seg — DOS segment for cached startup screen
+;                          ss_vram_cached — flag: 1 if startup VRAM is cached
 ;
 ;============================================================================
 
@@ -133,6 +150,7 @@ SS_FLIP_LINES  equ 48        ; Lines of flip-first palette streaming (must be ev
 SS_BAR_START   equ 128       ; First scanline of raster bar zone
 SS_BAR_END     equ 174       ; First scanline after bar zone
 SS_BAR_HEIGHT  equ 14        ; Height of each gradient bar in scanlines
+SS_BULK_ROWS   equ 10        ; Rows per DOS read call (bulk buffering)
 
 section .text start=0 vstart=0
 
@@ -178,6 +196,28 @@ MAIN:
   MOV BX,0xfff0           ;SP at top of 64KB
   MOV SP,BX
   STI
+
+  ; Shrink DOS memory block so we can allocate VRAM cache segment.
+  ; At entry ES = PSP segment. Resize to: DS + 0x1000 - ES paragraphs.
+  PUSH ES                 ; Save PSP segment for later
+  MOV BX,DS
+  ADD BX,0x1000           ; End of 64K data segment (paragraph)
+  MOV AX,ES
+  SUB BX,AX               ; BX = total paragraphs from PSP to end of DS
+  MOV AH,0x4A             ; DOS resize memory block (ES already = PSP)
+  INT 0x21
+
+  ; Allocate 1024 paragraphs (16384 bytes) for VRAM cache
+  MOV word [ss_vram_cache_seg],0
+  MOV BX,1024             ; 16K (enough for 16192-byte CGA buffer)
+  MOV AH,0x48             ; DOS allocate memory
+  INT 0x21
+  JC .no_cache            ; If alloc fails, cache stays 0
+  MOV [ss_vram_cache_seg],AX
+.no_cache:
+  POP ES                  ; Restore ES = PSP (needed by existing code below)
+
+  MOV BX,0xfff0           ; Restore BX for [p] assignment
   MOV word [p],BX
   MOV AX,p763o
   MOV word [p2],AX
@@ -12513,6 +12553,7 @@ ss_bmp_header     equ bmp_background
 ss_p1_row_buffer  equ bmp_background + 1088
 ss_p1_color_count equ bmp_background + 1412
 ss_p1_clc         equ bmp_background + 1924
+ss_bulk_buffer    equ p12e + 1024           ; Bulk read buffer (3200 bytes, safe in p12e's free area)
 
 ss_p2_row_buffer  equ p12e
 ss_p2_remap_table equ p12e + 324
@@ -12633,9 +12674,12 @@ load_startup_bmp:
 
 ;============================================================================
 ; show_startup_screen — Display STYX.BMP as startup/attract screen
-; Sets CGA mode 4, re-reads STYX.BMP from disk, renders to VRAM with
-; per-scanline color remapping, draws high scores on top, then enters
-; the FLIP-FIRST V6355D palette streaming display loop.
+; On first call: reads STYX.BMP, renders to off-screen bmp_background
+; buffer (text splash stays visible), saves to cache segment, then
+; switches to CGA mode 4 and copies to VRAM.
+; On subsequent calls: restores from cache (no disk I/O needed).
+; Draws high scores, programs palette, enters FLIP-FIRST V6355D
+; palette streaming display loop with animated raster bars.
 ; Video stays disabled until the first palette frame is ready, ensuring
 ; a clean transition. On keypress, disables video before returning
 ; to prevent palette flash during the transition to gameplay.
@@ -12644,14 +12688,12 @@ show_startup_screen:
   PUSH SI
   PUSH DI
 
-  ; Set CGA mode 4
-  MOV AX,0x0004
-  INT 0x10
-  CLD
+  ; Check if we have a cached copy of the rendered VRAM
+  CMP byte [ss_vram_cached],1
+  JE .restore_from_cache
 
-  ; Disable video during VRAM write
-  MOV AL,0x02
-  OUT 0xD8,AL
+  ; --- First time: render from BMP file ---
+  CLD
 
   ; Open file for Pass 2
   MOV DX,ss_filename
@@ -12668,13 +12710,40 @@ show_startup_screen:
   INT 0x21
   JC .show_close
 
-  ; Pass 2: render to CGA VRAM
+  ; Pass 2: render to off-screen buffer (text splash stays visible)
   CALL ss_render_to_vram
 
 .show_close:
   MOV BX,[ss_file_handle]
   MOV AH,0x3E
   INT 0x21
+
+  ; Save rendered buffer to cache segment (if allocated)
+  CMP word [ss_vram_cache_seg],0
+  JZ .skip_cache_save
+  CALL ss_save_to_cache
+  MOV byte [ss_vram_cached],1
+.skip_cache_save:
+  JMP SHORT .mode_switch
+
+.restore_from_cache:
+  ; Restore bmp_background from cache segment
+  CALL ss_restore_from_cache
+
+.mode_switch:
+  ; --- Quick switch: text → mode 4 with video disabled ---
+  MOV AL,0x02
+  OUT 0xD8,AL                     ; Disable video (last text frame lingers)
+
+  MOV AX,0x0004
+  INT 0x10                        ; Set CGA mode 4 (invisible)
+  CLD
+
+  MOV AL,0x02
+  OUT 0xD8,AL                     ; Re-disable (BIOS may have re-enabled)
+
+  ; Copy off-screen buffer to CGA VRAM
+  CALL ss_copy_buffer_to_vram
 
   ; Draw high scores while display is still off (BIOS writes to VRAM)
   CALL o3e6d
@@ -12859,6 +12928,7 @@ ss_analyze_image:
   PUSH DI
 
   MOV word [ss_cur_row],199
+  MOV word [ss_bulk_remaining],0   ; Reset bulk buffer for Pass 1
 
 .ai_loop:
   MOV DX,ss_p1_row_buffer
@@ -13358,9 +13428,9 @@ ss_build_stream_lengths:
   RET
 
 ;============================================================================
-; ss_render_to_vram — Pass 2: Read BMP, remap pixels, write to CGA VRAM
-; Reads from STYX.BMP (file already open and seeked).
-; Uses p12e area for row_buffer and remap_table.
+; ss_render_to_vram — Pass 2: Read BMP, remap pixels, write to off-screen
+; buffer (bmp_background) with C64-style border cycling (text mode
+; splash stays visible). Uses p12e area for row_buffer and remap_table.
 ;============================================================================
 ss_render_to_vram:
   PUSH AX
@@ -13371,9 +13441,10 @@ ss_render_to_vram:
   PUSH DI
   PUSH ES
 
-  MOV AX,0xB800
-  MOV ES,AX
+  PUSH DS
+  POP ES                          ; ES = DS (write to bmp_background)
   MOV word [ss_cur_row],199
+  MOV word [ss_bulk_remaining],0   ; Reset bulk buffer for Pass 2
 
 .rv_loop:
   MOV DX,ss_p2_row_buffer
@@ -13396,6 +13467,7 @@ ss_render_to_vram:
   JZ .rv_even
   ADD DI,0x2000
 .rv_even:
+  ADD DI,bmp_background             ; Offset into off-screen buffer
 
   MOV SI,ss_p2_row_buffer
   MOV BX,ss_p2_remap_table
@@ -13457,7 +13529,7 @@ ss_render_to_vram:
 
 .rv_cv_done:
 
-  ; C64-style border cycling: change border color each row
+  ; C64-style border cycling (text mode still active)
   PUSH AX
   MOV AL,[ss_border_ctr]
   OUT 0xD9,AL
@@ -13478,6 +13550,94 @@ ss_render_to_vram:
   POP DX
   POP CX
   POP BX
+  POP AX
+  RET
+
+;============================================================================
+; ss_copy_buffer_to_vram — Copy bmp_background to CGA VRAM at 0xB800
+; Even bank: 8000 bytes at offset 0, Odd bank: 8000 bytes at offset 0x2000
+; Call with video disabled. Uses REP MOVSW for speed.
+;============================================================================
+ss_copy_buffer_to_vram:
+  PUSH AX
+  PUSH CX
+  PUSH SI
+  PUSH DI
+  PUSH DS
+  PUSH ES
+
+  MOV AX,0xB800
+  MOV ES,AX
+
+  ; Copy even bank (8000 bytes)
+  MOV SI,bmp_background
+  XOR DI,DI
+  MOV CX,4000
+  REP MOVSW
+
+  ; Copy odd bank (8000 bytes)
+  MOV SI,bmp_background + 0x2000
+  MOV DI,0x2000
+  MOV CX,4000
+  REP MOVSW
+
+  POP ES
+  POP DS
+  POP DI
+  POP SI
+  POP CX
+  POP AX
+  RET
+
+;============================================================================
+; ss_save_to_cache — Copy bmp_background (16192 bytes) to cache segment
+;============================================================================
+ss_save_to_cache:
+  PUSH CX
+  PUSH SI
+  PUSH DI
+  PUSH DS
+  PUSH ES
+
+  MOV AX,[ss_vram_cache_seg]
+  MOV ES,AX                       ; ES = cache segment
+  MOV SI,bmp_background
+  XOR DI,DI
+  MOV CX,8096                     ; 16192 / 2
+  REP MOVSW
+
+  POP ES
+  POP DS
+  POP DI
+  POP SI
+  POP CX
+  RET
+
+;============================================================================
+; ss_restore_from_cache — Copy cache segment back to bmp_background
+;============================================================================
+ss_restore_from_cache:
+  PUSH AX
+  PUSH CX
+  PUSH SI
+  PUSH DI
+  PUSH DS
+  PUSH ES
+
+  MOV AX,DS                       ; Save data segment
+  MOV ES,AX                       ; ES = data segment (destination)
+  MOV AX,[ss_vram_cache_seg]
+  MOV DS,AX                       ; DS = cache segment (source)
+  XOR SI,SI                       ; Source: cache segment offset 0
+  MOV DI,bmp_background           ; Dest: bmp_background in data segment
+  MOV CX,8096                     ; 16192 / 2
+  REP MOVSW
+
+  POP ES
+  POP DS
+  POP DI
+  POP SI
+  POP CX
   POP AX
   RET
 
@@ -13643,19 +13803,71 @@ ss_compute_dist:
   RET
 
 ;============================================================================
-; ss_read_bmp_row — Read one BMP row from file
+; ss_read_bmp_row — Buffered BMP row reader
+; Reads SS_BULK_ROWS rows per DOS call, serves one row at a time.
 ; Input: DX = target buffer address
-; Returns: CF set on error, AX = bytes read
+; Returns: CF set on error, AX = bytes read (one row)
 ;============================================================================
 ss_read_bmp_row:
   PUSH BX
   PUSH CX
-  PUSH ES
+  PUSH SI
+  PUSH DI
+
+  CMP word [ss_bulk_remaining],0
+  JNE .br_serve
+
+  ; Buffer empty — read up to SS_BULK_ROWS rows from disk
+  PUSH DX                         ; Save caller's target buffer
+  MOV AX,SS_BULK_ROWS
+  MUL word [ss_row_bytes]         ; AX = total bytes to read
+  MOV CX,AX
+  MOV DX,ss_bulk_buffer
   MOV BX,[ss_file_handle]
-  MOV CX,[ss_row_bytes]
   MOV AH,0x3F
   INT 0x21
+  JC .br_err_pop
+
+  ; Calculate rows actually read (AX = bytes read from DOS)
+  XOR DX,DX
+  DIV word [ss_row_bytes]         ; AX = rows, DX = remainder
+  OR AX,AX
+  JZ .br_err_pop
+  MOV [ss_bulk_remaining],AX
+  MOV word [ss_bulk_ptr],ss_bulk_buffer
+  POP DX                          ; Restore caller's target buffer
+  JMP SHORT .br_serve
+
+.br_err_pop:
+  POP DX
+  JMP SHORT .br_error
+
+.br_serve:
+  ; Copy one row from bulk buffer to caller's buffer (DX)
+  PUSH ES
+  PUSH DS
+  POP ES                          ; ES = DS
+  MOV SI,[ss_bulk_ptr]
+  MOV DI,DX                       ; DI = caller's target buffer
+  MOV CX,[ss_row_bytes]
+  REP MOVSB
   POP ES
+
+  ; Advance bulk pointer, decrement remaining
+  MOV AX,[ss_row_bytes]
+  ADD [ss_bulk_ptr],AX
+  DEC word [ss_bulk_remaining]
+
+  MOV AX,[ss_row_bytes]           ; Return: AX = bytes for one row
+  CLC
+  JMP SHORT .br_done
+
+.br_error:
+  STC
+
+.br_done:
+  POP DI
+  POP SI
   POP CX
   POP BX
   RET
@@ -15529,8 +15741,8 @@ pal_inv_remap:     times 16 DB 0  ;Inverse map: pal_inv_remap[old_index] = new_p
 ;--- Background image buffer: 16000 bytes ---
 ; Even rows (0,2,4,...198) at offset 0, odd rows (1,3,...199) at offset 8000
 ; Each bank: 100 rows x 80 bytes = 8000 bytes
-; Total: 16000 bytes for full 160x200 resolution background
-bmp_background:    times 16000 DB 0
+; Total: 16192 bytes for CGA interlaced layout (8192 + 8000)
+bmp_background:    times 16192 DB 0
 
 ;============================================================================
 ; Startup BMP Screen Data (persistent across gameplay)
@@ -15557,6 +15769,10 @@ ss_bps_nxt_b:       DB 0          ;Temp: near line color B
 ss_bps_nxt_c:       DB 0          ;Temp: near line color C
 ss_filename:        DB "STYX.BMP",0
 ss_border_ctr:      DB 0            ;C64-style border color cycling counter
+ss_bulk_remaining:  DW 0            ;Rows left in bulk buffer
+ss_bulk_ptr:        DW 0            ;Pointer to next row in bulk buffer
+ss_vram_cache_seg:  DW 0            ;Segment for cached startup VRAM (0=none)
+ss_vram_cached:     DB 0            ;1 if startup VRAM is cached
 
 ;--- Loading splash screen (ANSI color codes) ---
 ss_splash:
@@ -15578,14 +15794,14 @@ ss_splash:
   DB 'STYX Remastered'
   DB 0x1B,'[0m',0x0D,0x0A
   DB 0x0D,0x0A
-  DB '                              '
+  DB '                                '
   DB 0x1B,'[1;35m'                  ;Bright Magenta
-  DB 'RetroErik'
+  DB 'Retro Erik'
   DB 0x1B,'[0m'
   DB ' 2026',0x0D,0x0A
   DB 0x0D,0x0A
   DB 0x0D,0x0A
-  DB '                                '
+  DB '                                   '
   DB 0x1B,'[1;33m'                  ;Bright Yellow
   DB 'Loading...'
   DB 0x1B,'[0m',0x0D,0x0A,'$'
