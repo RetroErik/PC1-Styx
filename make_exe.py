@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
-"""Create an MZ EXE from a raw binary (code+data) produced by NASM.
+"""Assemble STYX.ASM with NASM and create an MZ EXE.
 
-Usage: python make_exe.py styx.bin styx.exe
+Usage: python make_exe.py
 """
 
 import struct
 import sys
 import os
+import subprocess
 
 def make_exe(bin_path, exe_path):
     with open(bin_path, 'rb') as f:
@@ -53,6 +54,7 @@ def make_exe(bin_path, exe_path):
 
 if __name__ == '__main__':
     base_dir = os.path.dirname(os.path.abspath(__file__))
+    asm_path = os.path.join(base_dir, 'STYX.ASM')
     bin_path = os.path.join(base_dir, 'STYX.BIN')
     exe_path = os.path.join(base_dir, 'STYX.EXE')
     
@@ -61,5 +63,17 @@ if __name__ == '__main__':
         exe_path = sys.argv[2]
     elif len(sys.argv) == 2:
         bin_path = sys.argv[1]
+    
+    # Assemble with NASM first
+    print(f'Assembling {asm_path}...')
+    result = subprocess.run(
+        ['nasm', '-f', 'bin', '-o', bin_path, asm_path],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        print(f'NASM error:\n{result.stderr}', file=sys.stderr)
+        sys.exit(1)
+    if result.stderr:
+        print(f'NASM warnings:\n{result.stderr}')
     
     make_exe(bin_path, exe_path)
