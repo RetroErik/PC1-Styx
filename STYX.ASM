@@ -7695,7 +7695,7 @@ o3eao:
   PUSH AX
   CALL o5535
   MOV SP,BP
-  MOV word [BP+4],1             ;Entries 2-10 color: 1 (CGA green)
+  MOV word [BP+4],3             ;Entries 2-10 color: 3 (CGA cyan)
   INC word [BP+2]
   JMP o3e97
 o3f1f:
@@ -9658,6 +9658,144 @@ o56ed:
   CALL o1bo9
   CALL o38ef
   CALL o58ac
+  ;--- Alt key combo checks (Alt+ESC, Alt+2..9) ---
+  CMP byte [pbd],0xFF         ;Is Alt held?
+  JNZ .no_alt_action
+  MOV AL,byte [pc3]
+  CMP AL,0x01                 ;ESC scan code?
+  JZ .alt_esc
+  CMP AL,0x03                 ;Scan code for '2' key
+  JB .no_alt_action
+  CMP AL,0x0A                 ;Scan code for '9' key
+  JA .no_alt_action
+  ;--- Alt+2..9: jump to that level ---
+  SUB AL,1                    ;Scancode 0x03→level 2, 0x04→level 3, etc.
+  XOR AH,AH
+  MOV word [p74d4],AX
+  MOV byte [pc3],0
+  CALL o49f7                  ;Silence sound
+  ;-- Full level reinit (clear screen, borders, enemies, player) --
+  MOV word [pcb],0            ;Disable VRAM writes during redraw
+  XOR AX,AX
+  PUSH AX
+  CALL o8c1                   ;Clear screen to color 0
+  MOV SP,BP
+  CALL load_level_bmp         ;Load BMP for new level
+  CMP byte [bmp_loaded],0
+  JNZ .alt_has_bmp
+  CALL pc1_set_cga_palette
+  JMP .alt_pal_done
+.alt_has_bmp:
+  CALL set_bmp_game_palette
+.alt_pal_done:
+  ;-- Redraw game border (double rectangle) --
+  MOV AX,7
+  PUSH AX
+  MOV AX,9
+  PUSH AX
+  MOV AX,0x9e
+  PUSH AX
+  MOV AX,9
+  PUSH AX
+  MOV AX,1
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,0x62
+  PUSH AX
+  MOV AX,0x9e
+  PUSH AX
+  MOV AX,9
+  PUSH AX
+  MOV AX,0x9e
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,0x62
+  PUSH AX
+  MOV AX,1
+  PUSH AX
+  MOV AX,0x62
+  PUSH AX
+  MOV AX,0x9e
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,9
+  PUSH AX
+  MOV AX,1
+  PUSH AX
+  MOV AX,0x62
+  PUSH AX
+  MOV AX,1
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,0xa
+  PUSH AX
+  MOV AX,0x9d
+  PUSH AX
+  MOV AX,0xa
+  PUSH AX
+  MOV AX,2
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,0x61
+  PUSH AX
+  MOV AX,0x9d
+  PUSH AX
+  MOV AX,0xa
+  PUSH AX
+  MOV AX,0x9d
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,0x61
+  PUSH AX
+  MOV AX,2
+  PUSH AX
+  MOV AX,0x61
+  PUSH AX
+  MOV AX,0x9d
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  MOV AX,7
+  PUSH AX
+  MOV AX,0xa
+  PUSH AX
+  MOV AX,2
+  PUSH AX
+  MOV AX,0x61
+  PUSH AX
+  MOV AX,2
+  PUSH AX
+  CALL oab6
+  MOV SP,BP
+  CALL o57b5                  ;Reinit enemies, player, score display
+  MOV word [pcb],1            ;Re-enable VRAM writes
+  CALL o5c3                   ;Refresh screen (copy shadow→VRAM)
+  JMP o56dd                   ;Back to main game loop
+.alt_esc:
+  ;--- Alt+ESC: return to start screen ---
+  MOV byte [pc3],0
+  CALL o49f7                  ;Silence sound
+  CALL pc1_set_cga_palette    ;Reset palette for title screen
+  JMP o55a8                   ;Jump to start/attract screen
+.no_alt_action:
   JMP o56ed
 ;--- o5739: Player death handler ---
 ; Runs wobble effect (o297a), screen flash (o1f25), erases enemies
