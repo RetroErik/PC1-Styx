@@ -95,11 +95,10 @@
 ;                        show_startup_screen — Pass 2: render + display loop
 ;                        Per-scanline V6355D palette reprogramming using
 ;                        CGA palette flip (dual bank flip-first technique)
-;                        in 320×200×4 mode. 4-zone renderer:
-;                          Zone 1a (0-47):   flip-first E2-E7 streaming
-;                          Zone 1b (48-127):  idle (colors converged)
-;                          Zone 2  (128-173): E0 raster bars (animated)
-;                          Zone 3  (174-199): idle
+;                        in 320×200×4 mode. Unified renderer:
+;                          All 200 lines: flip-first E0+E1+E2-E7 streaming
+;                          E0 = animated raster bars (can appear anywhere)
+;                          E2-E7 = flip-first image colors
 ;                        Loading experience:
 ;                          ANSI splash screen (text mode) with C64-style
 ;                          border color cycling during BMP analysis.
@@ -146,10 +145,7 @@ bits 16
 cpu 186                     ; NEC V40 supports 80186 instructions
 
 ;--- Startup screen raster bar parameters ---
-SS_FLIP_LINES  equ 48        ; Lines of flip-first palette streaming (must be even)
-SS_BAR_START   equ 128       ; First scanline of raster bar zone
-SS_BAR_END     equ 174       ; First scanline after bar zone
-SS_BAR_HEIGHT  equ 14        ; Height of each gradient bar in scanlines
+SS_BAR_HEIGHT  equ 8         ; Height of each sine-snake gradient bar in scanlines
 SS_BULK_ROWS   equ 10        ; Rows per DOS read call (bulk buffering)
 
 section .text start=0 vstart=0
@@ -12790,11 +12786,8 @@ load_startup_bmp:
   ; Reorder by stability
   CALL ss_reorder_by_stability
 
-  ; Build palette stream (2400 bytes)
+  ; Build palette stream (3200 bytes: 16 bytes/line x 200)
   CALL ss_build_palette_stream
-
-  ; Build stream lengths (200 bytes)
-  CALL ss_build_stream_lengths
 
   MOV byte [ss_loaded],1
 
@@ -12889,10 +12882,10 @@ show_startup_screen:
   ; Program initial palette (entry 0 = black, entries 2-7 from BMP)
   CALL ss_program_initial_palette
 
-  ; Initialize raster bar state
-  MOV byte [ss_bar1_sine_idx],0
-  MOV byte [ss_bar2_sine_idx],85   ;120° offset
+  ; Initialize sine snake phase
+  MOV byte [ss_snake_phase],0
   CALL ss_build_scanline_table
+  CALL ss_update_stream_e0
 
   ; Clear stale keypress
   MOV byte [pc3],0
@@ -12911,26 +12904,50 @@ show_startup_screen:
 
   ; Display loop: animate bars, render_frame per VSYNC, check for keypress
 .display_loop:
-  ; Update bar positions (during VBLANK / between frames)
-  ADD byte [ss_bar1_sine_idx],2    ;Speed 2
-  MOV AL,[ss_bar1_sine_idx]
+  ; Advance snake phase (all 5 bars share one phase, offset by spacing)
+  ADD byte [ss_snake_phase],2       ;Speed
+
+  ; Bar 1 (head — red): phase + 0
+  MOV AL,[ss_snake_phase]
   XOR AH,AH
   MOV SI,AX
-  MOV AL,[ss_sine_table + SI]
-  SHR AL,2                        ;0-97 → 0-24
-  ADD AL,SS_BAR_START              ;Offset into bar zone
+  MOV AL,[ss_sine_table + SI]       ;Y direct (range 27-192)
   MOV [ss_bar1_y],AL
 
-  ADD byte [ss_bar2_sine_idx],3    ;Speed 3
-  MOV AL,[ss_bar2_sine_idx]
+  ; Bar 2 (yellow): phase - 12
+  MOV AL,[ss_snake_phase]
+  SUB AL,12
   XOR AH,AH
   MOV SI,AX
   MOV AL,[ss_sine_table + SI]
-  SHR AL,2
-  ADD AL,SS_BAR_START
   MOV [ss_bar2_y],AL
 
+  ; Bar 3 (green): phase - 24
+  MOV AL,[ss_snake_phase]
+  SUB AL,24
+  XOR AH,AH
+  MOV SI,AX
+  MOV AL,[ss_sine_table + SI]
+  MOV [ss_bar3_y],AL
+
+  ; Bar 4 (cyan): phase - 36
+  MOV AL,[ss_snake_phase]
+  SUB AL,36
+  XOR AH,AH
+  MOV SI,AX
+  MOV AL,[ss_sine_table + SI]
+  MOV [ss_bar4_y],AL
+
+  ; Bar 5 (tail — blue): phase - 48
+  MOV AL,[ss_snake_phase]
+  SUB AL,48
+  XOR AH,AH
+  MOV SI,AX
+  MOV AL,[ss_sine_table + SI]
+  MOV [ss_bar5_y],AL
+
   CALL ss_build_scanline_table
+  CALL ss_update_stream_e0
 
   CALL ss_wait_vblank
   CALL ss_render_frame
@@ -13143,6 +13160,16 @@ ss_analyze_scanline:
   SHL BX,1
   INC word [ss_p1_color_count + BX]
   SHR BX,1
+  ; C64-style: cycle border every 16 iterations (~10x per row)
+  TEST CX,0x0F
+  JNZ .count4_noborder
+  PUSH AX
+  MOV AL,[ss_border_ctr]
+  OUT 0xD9,AL
+  INC byte [ss_border_ctr]
+  AND byte [ss_border_ctr],0x0F
+  POP AX
+.count4_noborder:
   LOOP .count4
   JMP .count_done
 
@@ -13156,6 +13183,16 @@ ss_analyze_scanline:
   SHL BX,1
   INC word [ss_p1_color_count + BX]
   SHR BX,1
+  ; C64-style: cycle border every 32 iterations (~10x per row)
+  TEST CX,0x1F
+  JNZ .count8_noborder
+  PUSH AX
+  MOV AL,[ss_border_ctr]
+  OUT 0xD9,AL
+  INC byte [ss_border_ctr]
+  AND byte [ss_border_ctr],0x0F
+  POP AX
+.count8_noborder:
   LOOP .count8
 
 .count_done:
@@ -13376,8 +13413,8 @@ ss_reorder_by_stability:
   RET
 
 ;============================================================================
-; ss_build_palette_stream — Build interleaved V6355D data for entries 2-7
-; 200 lines x 12 bytes = 2400 bytes total.
+; ss_build_palette_stream — Build unified V6355D data for entries E0-E7
+; 200 lines x 16 bytes = 3200 bytes total.
 ;============================================================================
 ss_build_palette_stream:
   PUSH AX
@@ -13391,6 +13428,12 @@ ss_build_palette_stream:
   MOV DI,ss_palette_stream
 
 .bps_loop:
+  ; E0: black placeholder (updated per-frame by ss_update_stream_e0)
+  MOV word [DI],0
+
+  ; E1: unused entry (always zero)
+  MOV word [DI + 2],0
+
   ; Far line (N+2) — inactive pre-load target
   MOV BX,CX
   ADD BX,2
@@ -13433,32 +13476,32 @@ ss_build_palette_stream:
   MOV BL,[ss_bps_cur_a]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI],AX
+  MOV [DI + 4],AX
   XOR BX,BX
   MOV BL,[ss_bps_nxt_a]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI + 2],AX
+  MOV [DI + 6],AX
   XOR BX,BX
   MOV BL,[ss_bps_cur_b]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI + 4],AX
+  MOV [DI + 8],AX
   XOR BX,BX
   MOV BL,[ss_bps_nxt_b]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI + 6],AX
+  MOV [DI + 10],AX
   XOR BX,BX
   MOV BL,[ss_bps_cur_c]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI + 8],AX
+  MOV [DI + 12],AX
   XOR BX,BX
   MOV BL,[ss_bps_nxt_c]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI + 10],AX
+  MOV [DI + 14],AX
   JMP .bps_next
 
 .bps_odd:
@@ -13467,35 +13510,35 @@ ss_build_palette_stream:
   MOV BL,[ss_bps_nxt_a]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI],AX
+  MOV [DI + 4],AX
   XOR BX,BX
   MOV BL,[ss_bps_cur_a]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI + 2],AX
+  MOV [DI + 6],AX
   XOR BX,BX
   MOV BL,[ss_bps_nxt_b]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI + 4],AX
+  MOV [DI + 8],AX
   XOR BX,BX
   MOV BL,[ss_bps_cur_b]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI + 6],AX
+  MOV [DI + 10],AX
   XOR BX,BX
   MOV BL,[ss_bps_nxt_c]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI + 8],AX
+  MOV [DI + 12],AX
   XOR BX,BX
   MOV BL,[ss_bps_cur_c]
   SHL BX,1
   MOV AX,[ss_v6355_pal + BX]
-  MOV [DI + 10],AX
+  MOV [DI + 14],AX
 
 .bps_next:
-  ADD DI,12
+  ADD DI,16
   INC CX
   CMP CX,200
   JB .bps_loop
@@ -13509,59 +13552,31 @@ ss_build_palette_stream:
   RET
 
 ;============================================================================
-; ss_build_stream_lengths — Determine skip(0) or write(12) per scanline
+; ss_update_stream_e0 — Copy bar colors into palette stream E0 slots
 ;============================================================================
-ss_build_stream_lengths:
+; Called once per frame, after ss_build_scanline_table. Copies the 2-byte
+; bar color (R, G|B) from ss_scanline_colors[N] into ss_palette_stream[N*16]
+; for all 200 scanlines.
+;============================================================================
+ss_update_stream_e0:
   PUSH AX
-  PUSH BX
   PUSH CX
   PUSH SI
   PUSH DI
 
-  MOV byte [ss_stream_len],12       ;Line 0 always full
-  MOV SI,1
+  MOV SI,ss_scanline_colors
+  MOV DI,ss_palette_stream
+  MOV CX,200
 
-.bsl_loop:
-  MOV BX,SI
-  MOV AX,BX
-  SHL AX,1
-  ADD BX,AX
-
-  MOV DI,SI
-  ADD DI,2
-  CMP DI,200
-  JB .bsl_ok
-  SUB DI,200
-.bsl_ok:
-  MOV AX,DI
-  SHL AX,1
-  ADD DI,AX
-
-  MOV AL,[ss_scanline_top3 + BX]
-  CMP AL,[ss_scanline_top3 + DI]
-  JNE .bsl_full
-  MOV AL,[ss_scanline_top3 + BX + 1]
-  CMP AL,[ss_scanline_top3 + DI + 1]
-  JNE .bsl_full
-  MOV AL,[ss_scanline_top3 + BX + 2]
-  CMP AL,[ss_scanline_top3 + DI + 2]
-  JNE .bsl_full
-
-  MOV byte [ss_stream_len + SI],0
-  JMP .bsl_next
-
-.bsl_full:
-  MOV byte [ss_stream_len + SI],12
-
-.bsl_next:
-  INC SI
-  CMP SI,200
-  JB .bsl_loop
+.use_loop:
+  LODSW                           ;AX = R, GB from scanline_colors
+  MOV [DI],AX                    ;Store at E0 slot (offset 0-1 of 16-byte record)
+  ADD DI,16                       ;Next 16-byte record
+  LOOP .use_loop
 
   POP DI
   POP SI
   POP CX
-  POP BX
   POP AX
   RET
 
@@ -13640,6 +13655,19 @@ ss_render_to_vram:
   OR DH,AL
   MOV AL,DH
   STOSB
+  ; C64-style: cycle border every 10 bytes (~8x per row)
+  PUSH AX
+  MOV AX,CX
+  MOV AL,AH               ;Check CX mod 10 via masking
+  MOV AX,CX
+  AND AX,0x07             ;Every 8 iterations
+  JNZ .rv_4_noborder
+  MOV AL,[ss_border_ctr]
+  OUT 0xD9,AL
+  INC byte [ss_border_ctr]
+  AND byte [ss_border_ctr],0x0F
+.rv_4_noborder:
+  POP AX
   LOOP .rv_4
   JMP .rv_cv_done
 
@@ -13663,6 +13691,17 @@ ss_render_to_vram:
   OR DH,AL
   MOV AL,DH
   STOSB
+  ; C64-style: cycle border every 8 iterations (~10x per row)
+  PUSH AX
+  MOV AX,CX
+  AND AX,0x07
+  JNZ .rv_8_noborder
+  MOV AL,[ss_border_ctr]
+  OUT 0xD9,AL
+  INC byte [ss_border_ctr]
+  AND byte [ss_border_ctr],0x0F
+.rv_8_noborder:
+  POP AX
   LOOP .rv_8
 
 .rv_cv_done:
@@ -14111,166 +14150,90 @@ ss_program_initial_palette:
   RET
 
 ;============================================================================
-; ss_render_frame — Per-scanline palette programming across 4 zones
+; ss_render_frame — Unified per-scanline palette programming (E0-E7)
 ;============================================================================
 ;
-; Ported from palram9.asm. Called once per frame after wait_vblank.
+; Called once per frame after wait_vblank. Programs the V6355D palette
+; for all 200 visible scanlines using a single unified loop — no zone split.
 ;
-; Uses the V6355D's dual palette bank feature ("CGA palette flip") to
-; display more than 4 colors in 320×200 CGA mode 4. Two palette banks
-; (PAL_EVEN = 0x00, PAL_ODD = 0x20) are alternated each scanline via
-; port 0xD9. Each bank has entries E0-E7: E0 is shared by both banks
-; (background color), while E2-E7 hold 3 independent colors per bank.
-; By writing different colors to each bank's E2-E7, and flipping which
-; bank is active at each HBLANK, each scanline can display 3 independent
-; colors from the full 512-color V6355D palette. Writes happen during
-; HBLANK to the INACTIVE bank ("flip-first"), so the 12-byte REP OUTSB
-; spill past HBLANK is invisible.
+; Each scanline:
+;   1. Wait for HBLANK
+;   2. FLIP palette select (PAL_ODD ↔ PAL_EVEN)
+;   3. Open palette at E0 (0x40)
+;   4. Stream 16 bytes via individual OUTSB: E0(2) + E1(2) + E2-E7(12)
+;   5. Close palette (0x80)
 ;
-; After 48 lines of flip-first, both banks have converged to the same
-; E2-E7 values (the image has uniform colors from line 48 onward).
-; Flipping stops and E2-E7 persist for the rest of the frame, including
-; the bar zone where green STYX letters must remain visible.
+; E0 (bar color) completes within HBLANK (~55 cycles).
+; E1 (unused) spills slightly past HBLANK — harmless, no pixels use E1.
+; E2-E7 (image colors) write to the INACTIVE palette set (flip-first).
 ;
-; ZONE 1a — IMAGE (lines 0-47, 48 lines):
-;   Flip-first E2-E7 streaming from ss_palette_stream.
-;   Each HBLANK: flip bank via 0xD9, write 12 bytes (E2-E7) to inactive
-;   bank via REP OUTSB to port 0xDE. After 48 even flips, BL/BH return
-;   to their original values.
+; KNOWN LIMITATION — E0 race condition / occasional blink:
+;   The palette flip (step 2) exposes the new E0 value *before* the OUTSB
+;   chain (step 4) writes it. On scanlines where E0 is black, this is
+;   invisible. On bar scanlines where E0 holds a non-black color, the
+;   stale E0 from the previous flip may briefly flash the wrong color.
+;   Result: ~2 visible blinks per minute — cosmetically acceptable.
+;   Building with NASM -O0 (no jump optimization) inflates the code by
+;   ~800 bytes, making near jumps push the OUTSB past the HBLANK window
+;   and causing constant blinking. Always build with default optimization
+;   (or use -w-error=label-redef-late to suppress convergence warnings).
 ;
-; ZONE 1b — IMAGE (lines 48-127, 80 lines):
-;   Idle — HBLANK sync only, no palette writes. E2-E7 are already
-;   correct in both banks from Zone 1a. Saves ~1200 I/O writes/frame.
-;
-; ZONE 2 — RASTER BARS (lines 128-173, 46 lines):
-;   Entry 0 only — animated color bars behind green STYX letters.
-;   Pre-fetch R into AH and G|B into [ss_bar_gb] BEFORE HBLANK wait.
-;   During HBLANK: open E0 (0x40), write R, write G|B, close (0x80).
-;   No palette flip needed (E0 is shared by both banks).
-;
-; ZONE 3 — IMAGE (lines 174-199, 26 lines):
-;   Idle — HBLANK sync only, like Zone 1b.
-;
-; Parameters (defined at top of file, change to adjust layout):
-;   SS_FLIP_LINES  equ 48     ; Lines of flip-first palette streaming
-;   SS_BAR_START   equ 128    ; First scanline of raster bar zone
-;   SS_BAR_END     equ 174    ; First scanline after bar zone (174-1=173)
-;
-; Register plan (matches palram9):
-;   DX = 0xDE permanently (PORT_REG_DATA)
-;   SI = palette_stream pointer (Zone 1a only, advanced by REP OUTSB)
-;   DI = scanline_colors pointer (all zones, advanced 2 bytes/line)
+; Register plan:
+;   DX = 0xDE (PORT_REG_DATA) — permanent, used by OUTSB
+;   SI = ss_palette_stream pointer — advances 16 bytes per line
 ;   CX = scanline counter (counts down from 200)
-;   BL/BH = PAL_ODD (0x20) / PAL_EVEN (0x00) — Zone 1a flip-first
-;   AH = pre-fetched R byte (Zone 2 bar burst)
+;   BL/BH = PAL_ODD/PAL_EVEN (alternating flip)
 ;============================================================================
 ss_render_frame:
   CLI
   CLD
 
   MOV SI,ss_palette_stream
-  MOV DI,ss_scanline_colors
   MOV CX,200
   MOV DX,0xDE                   ;DX = PORT_REG_DATA permanently
   MOV BL,0x20                   ;PAL_ODD
   MOV BH,0x00                   ;PAL_EVEN
 
-  ;=== ZONE 1a: IMAGE — lines 0 to 47 (flip-first E2-E7) ===
-.z1a_image:
-.z1a_wl:
+.rf_scanline:
+.rf_wait_low:
   IN AL,0xDA
   TEST AL,0x01
-  JNZ .z1a_wl
-.z1a_wh:
+  JNZ .rf_wait_low
+.rf_wait_high:
   IN AL,0xDA
   TEST AL,0x01
-  JZ .z1a_wh
+  JZ .rf_wait_high
 
-  ; FLIP FIRST
+  ; === FLIP FIRST — nanosecond-critical ===
   MOV AL,BL
   OUT 0xD9,AL
   XCHG BL,BH
 
-  ; Write E2-E7 (12 bytes)
-  MOV AL,0x44
-  OUT 0xDD,AL
-
-  PUSH CX
-  MOV CX,12
-  REP OUTSB
-  POP CX
-
-  MOV AL,0x80
-  OUT 0xDD,AL
-
-  ADD DI,2                      ;Advance past unused bar slot
-  DEC CX
-  CMP CX,200 - SS_FLIP_LINES
-  JA .z1a_image
-
-  ;=== ZONE 1b: IMAGE — lines 48 to 127 (no flip, colors stable) ===
-  ; E2-E7 already correct in both banks from Zone 1a.
-.z1b_idle:
-.z1b_wl:
-  IN AL,0xDA
-  TEST AL,0x01
-  JNZ .z1b_wl
-.z1b_wh:
-  IN AL,0xDA
-  TEST AL,0x01
-  JZ .z1b_wh
-
-  ADD DI,2
-  DEC CX
-  CMP CX,200 - SS_BAR_START
-  JA .z1b_idle
-
-  ;=== ZONE 2: RASTER BARS — lines 128 to 173 (entry 0 only, 46 lines) ===
-  ; E2-E7 persist with correct image colors (including green for STYX).
-.z2_bar:
-  ; Pre-fetch color into registers (during visible area — free time)
-  MOV AH,[DI]                  ;AH = R (survives wait loop)
-  MOV AL,[DI + 1]
-  MOV [ss_bar_gb],AL            ;Save G|B in memory
-  ADD DI,2
-
-.z2_wl:
-  IN AL,0xDA
-  TEST AL,0x01
-  JNZ .z2_wl
-.z2_wh:
-  IN AL,0xDA
-  TEST AL,0x01
-  JZ .z2_wh
-
-  ; --- Critical HBLANK: pre-fetched burst, 1 memory read ---
+  ; === Open at E0, stream all 16 bytes ===
   MOV AL,0x40
-  OUT 0xDD,AL                  ;Open E0
-  MOV AL,AH                    ;R from AH (preserved)
-  OUT DX,AL                    ;R → 0xDE
-  MOV AL,[ss_bar_gb]            ;G|B from saved byte
-  OUT DX,AL                    ;G|B → 0xDE
+  OUT 0xDD,AL                  ;Open palette at entry 0
+
+  OUTSB                         ;E0 R   (bar color)
+  OUTSB                         ;E0 GB  (bar color)
+  OUTSB                         ;E1 R   (zeros)
+  OUTSB                         ;E1 GB  (zeros)
+  OUTSB                         ;E2 R
+  OUTSB                         ;E2 GB
+  OUTSB                         ;E3 R
+  OUTSB                         ;E3 GB
+  OUTSB                         ;E4 R
+  OUTSB                         ;E4 GB
+  OUTSB                         ;E5 R
+  OUTSB                         ;E5 GB
+  OUTSB                         ;E6 R
+  OUTSB                         ;E6 GB
+  OUTSB                         ;E7 R
+  OUTSB                         ;E7 GB
+
   MOV AL,0x80
-  OUT 0xDD,AL                  ;Close
+  OUT 0xDD,AL                  ;Close palette
 
-  DEC CX
-  CMP CX,200 - SS_BAR_END
-  JA .z2_bar
-
-  ;=== ZONE 3: IMAGE — lines 174 to 199 (no flip, colors stable) ===
-  ; E2-E7 still correct from Zone 1a, no writes needed.
-.z3_idle:
-.z3_wl:
-  IN AL,0xDA
-  TEST AL,0x01
-  JNZ .z3_wl
-.z3_wh:
-  IN AL,0xDA
-  TEST AL,0x01
-  JZ .z3_wh
-
-  ADD DI,2
-  LOOP .z3_idle
+  LOOP .rf_scanline
 
   ; --- End of frame: reset E0 to black, restore PAL_EVEN ---
   MOV AL,0x40
@@ -14290,13 +14253,16 @@ ss_render_frame:
 ;============================================================================
 ; ss_build_scanline_table — Pre-compute raster bar RGB pairs for 200 lines
 ;============================================================================
-; Fills ss_scanline_colors (200 × 2 bytes). Image zone lines are black
-; (0,0). Bar zone lines get the red/blue gradients at animated positions.
+; Fills ss_scanline_colors (200 × 2 bytes). Non-bar lines are black (0,0).
+; Draws 5 sine-snake bars back-to-front (blue tail → red head) so the head
+; bar renders on top when segments overlap. Each bar is SS_BAR_HEIGHT lines
+; tall with a symmetric gradient (dark → bright → dark).
 ;============================================================================
 ss_build_scanline_table:
   PUSH AX
   PUSH BX
   PUSH CX
+  PUSH SI
   PUSH DI
 
   ; Fill entire table with black
@@ -14308,99 +14274,54 @@ ss_build_scanline_table:
   ADD DI,2
   LOOP .clear_loop
 
-  ; Draw both bars with hysteresis to prevent Z-order jitter.
-  ; Only swap draw order when Y gap exceeds 2 scanlines.
-  MOV AL,[ss_bar1_y]
-  MOV AH,[ss_bar2_y]
-  CMP byte [ss_bar_zorder],0
-  JNE .check_swap_to_blue
-  ; Currently blue on top — swap to red only if red_y + 2 < blue_y
-  MOV DL,AL
-  ADD DL,2
-  CMP DL,AH
-  JB .set_red_on_top
-  JMP .draw_blue_top
-.check_swap_to_blue:
-  ; Currently red on top — swap to blue only if blue_y + 2 < red_y
-  MOV DL,AH
-  ADD DL,2
-  CMP DL,AL
-  JB .set_blue_on_top
-  JMP .draw_red_top
-.set_red_on_top:
-  MOV byte [ss_bar_zorder],1
-.draw_red_top:
-  CALL .draw_blue_bar
-  CALL .draw_red_bar
-  JMP .bars_done
-.set_blue_on_top:
-  MOV byte [ss_bar_zorder],0
-.draw_blue_top:
-  CALL .draw_red_bar
-  CALL .draw_blue_bar
-.bars_done:
+  ; Draw snake segments back-to-front (tail first, head last = on top)
+  MOV BL,[ss_bar5_y]
+  MOV SI,ss_blue_gradient
+  CALL .draw_bar
+
+  MOV BL,[ss_bar4_y]
+  MOV SI,ss_cyan_gradient
+  CALL .draw_bar
+
+  MOV BL,[ss_bar3_y]
+  MOV SI,ss_green_gradient
+  CALL .draw_bar
+
+  MOV BL,[ss_bar2_y]
+  MOV SI,ss_yellow_gradient
+  CALL .draw_bar
+
+  MOV BL,[ss_bar1_y]
+  MOV SI,ss_red_gradient
+  CALL .draw_bar
 
   POP DI
-  POP CX
-  POP BX
-  POP AX
-  RET
-
-; --- Draw red bar at ss_bar1_y ---
-.draw_red_bar:
-  PUSH AX
-  PUSH BX
-  PUSH CX
-  PUSH SI
-
-  MOV AL,[ss_bar1_y]
-  XOR AH,AH
-  MOV BX,AX
-  SHL BX,1                      ;×2 for word entries
-  MOV SI,ss_red_gradient
-  MOV CX,14
-
-.dr_loop:
-  CMP BX,200 * 2
-  JAE .dr_skip
-  MOV AX,[SI]
-  MOV [ss_scanline_colors + BX],AX
-.dr_skip:
-  ADD BX,2
-  ADD SI,2
-  LOOP .dr_loop
-
   POP SI
   POP CX
   POP BX
   POP AX
   RET
 
-; --- Draw blue bar at ss_bar2_y ---
-.draw_blue_bar:
+; --- Generic bar draw: BL = Y position, SI = gradient pointer ---
+.draw_bar:
   PUSH AX
   PUSH BX
   PUSH CX
-  PUSH SI
 
-  MOV AL,[ss_bar2_y]
-  XOR AH,AH
-  MOV BX,AX
-  SHL BX,1
-  MOV SI,ss_blue_gradient
-  MOV CX,14
+  XOR BH,BH
+  SHL BX,1                        ;×2 for word entries
+  MOV CX,SS_BAR_HEIGHT
 
-.db_loop:
+.dbar_loop:
   CMP BX,200 * 2
-  JAE .db_skip
+  JAE .dbar_skip
   MOV AX,[SI]
   MOV [ss_scanline_colors + BX],AX
-.db_skip:
+.dbar_skip:
   ADD BX,2
   ADD SI,2
-  LOOP .db_loop
+  LOOP .dbar_loop
 
-  POP SI
   POP CX
   POP BX
   POP AX
@@ -15942,56 +15863,60 @@ ss_splash:
   DB '                                   '
   DB 0x1B,'[1;33m'                  ;Bright Yellow
   DB 'Loading...'
-  DB 0x1B,'[0m',0x0D,0x0A,'$'
+  DB 0x1B,'[0m','$'
 ss_pal_r:           times 256 DB 0 ;Red channel (0-255) per palette entry
 ss_pal_g:           times 256 DB 0 ;Green channel per palette entry
 ss_pal_b:           times 256 DB 0 ;Blue channel per palette entry
 ss_v6355_pal:       times 512 DB 0 ;V6355D 2-byte entries (up to 256 colors)
 ss_scanline_top3:   times 600 DB 0 ;Top 3 colors per scanline (3 x 200)
-ss_stream_len:      times 200 DB 0 ;Per-line: 0=skip, 12=full write
-ss_palette_stream:  times 2400 DB 0 ;Interleaved V6355D data (12 bytes x 200)
+ss_palette_stream:  times 3200 DB 0 ;Unified V6355D data (16 bytes x 200: E0+E1+E2-E7)
 
-;--- Raster bar data (palram9-style) ---
-ss_bar1_y:          DB 0            ;Bar 1 screen Y position (absolute)
-ss_bar2_y:          DB 0            ;Bar 2 screen Y position (absolute)
-ss_bar1_sine_idx:   DB 0            ;Bar 1 sine table index (0-255)
-ss_bar2_sine_idx:   DB 85           ;Bar 2 sine table index (120° offset)
-ss_bar_gb:          DB 0            ;Pre-fetched G|B byte for bar zone burst
-ss_bar_zorder:      DB 0            ;0 = blue on top, 1 = red on top
+;--- Sine snake data ---
+ss_bar1_y:          DB 0            ;Snake head Y
+ss_bar2_y:          DB 0
+ss_bar3_y:          DB 0
+ss_bar4_y:          DB 0
+ss_bar5_y:          DB 0            ;Snake tail Y
+ss_snake_phase:     DB 0            ;Shared sine phase counter
 
-; Green E2-E7 data for OUTSB (12 bytes: 6 entries × 2 bytes each)
-; All entries = pure green (R=0, G=7, B=0) → V6355D: R=0x00, GB=0x70
-ss_green_e2e7:
-  DB 0x00,0x70, 0x00,0x70, 0x00,0x70, 0x00,0x70, 0x00,0x70, 0x00,0x70
-
-; Red gradient: 14 lines (R ramps 1→7→1, 1 line each), G=0, B=0
+; Red gradient (head): 8 lines, R ramps 1→7→1
 ss_red_gradient:
-  DB 1,0x00,  2,0x00,  3,0x00,  4,0x00,  5,0x00,  6,0x00,  7,0x00
-  DB 7,0x00,  6,0x00,  5,0x00,  4,0x00,  3,0x00,  2,0x00,  1,0x00
+  DB 1,0x00, 3,0x00, 5,0x00, 7,0x00, 7,0x00, 5,0x00, 3,0x00, 1,0x00
 
-; Blue gradient: 14 lines (B ramps 1→7→1, 1 line each), R=0, G=0
+; Yellow gradient: 8 lines, R+G ramp 1→7→1
+ss_yellow_gradient:
+  DB 1,0x10, 3,0x30, 5,0x50, 7,0x70, 7,0x70, 5,0x50, 3,0x30, 1,0x10
+
+; Green gradient: 8 lines, G ramps 1→7→1
+ss_green_gradient:
+  DB 0,0x10, 0,0x30, 0,0x50, 0,0x70, 0,0x70, 0,0x50, 0,0x30, 0,0x10
+
+; Cyan gradient: 8 lines, G+B ramp 1→7→1
+ss_cyan_gradient:
+  DB 0,0x11, 0,0x33, 0,0x55, 0,0x77, 0,0x77, 0,0x55, 0,0x33, 0,0x11
+
+; Blue gradient (tail): 8 lines, B ramps 1→7→1
 ss_blue_gradient:
-  DB 0,0x01,  0,0x02,  0,0x03,  0,0x04,  0,0x05,  0,0x06,  0,0x07
-  DB 0,0x07,  0,0x06,  0,0x05,  0,0x04,  0,0x03,  0,0x02,  0,0x01
+  DB 0,0x01, 0,0x03, 0,0x05, 0,0x07, 0,0x07, 0,0x05, 0,0x03, 0,0x01
 
-; Sine table (256 entries, values 0-97) — same as palram9
+; Sine table (256 entries, values 27-192) — bars stay below line 27
 ss_sine_table:
-  DB 50, 51, 52, 53, 55, 56, 57, 58, 59, 61, 62, 63, 64, 65, 66, 68
-  DB 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84
-  DB 84, 85, 86, 87, 87, 88, 89, 89, 90, 90, 91, 91, 92, 92, 93, 93
-  DB 94, 94, 94, 95, 95, 95, 96, 96, 96, 96, 97, 97, 97, 97, 97, 97
-  DB 97, 97, 97, 97, 97, 97, 97, 97, 96, 96, 96, 96, 95, 95, 95, 94
-  DB 94, 94, 93, 93, 92, 92, 91, 91, 90, 90, 89, 89, 88, 87, 87, 86
-  DB 85, 84, 84, 83, 82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71
-  DB 70, 69, 68, 66, 65, 64, 63, 62, 61, 59, 58, 57, 56, 55, 53, 52
-  DB 50, 49, 48, 47, 45, 44, 43, 42, 41, 39, 38, 37, 36, 35, 34, 32
-  DB 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16
-  DB 16, 15, 14, 13, 13, 12, 11, 11, 10, 10,  9,  9,  8,  8,  7,  7
-  DB  6,  6,  6,  5,  5,  5,  4,  4,  4,  4,  3,  3,  3,  3,  3,  3
-  DB  3,  3,  3,  3,  3,  3,  3,  3,  4,  4,  4,  4,  5,  5,  5,  6
-  DB  6,  6,  7,  7,  8,  8,  9,  9, 10, 10, 11, 11, 12, 13, 13, 14
-  DB 15, 16, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29
-  DB 30, 31, 32, 34, 35, 36, 37, 38, 39, 41, 42, 43, 44, 45, 47, 48
+  DB 110, 112, 114, 116, 118, 120, 122, 124, 126, 128, 130, 132, 133, 135, 137, 139
+  DB 141, 143, 145, 147, 148, 150, 152, 154, 155, 157, 159, 160, 162, 163, 165, 166
+  DB 168, 169, 171, 172, 173, 175, 176, 177, 178, 179, 180, 181, 182, 183, 184, 185
+  DB 186, 186, 187, 188, 188, 189, 190, 190, 190, 191, 191, 191, 192, 192, 192, 192
+  DB 192, 192, 192, 192, 192, 191, 191, 191, 190, 190, 190, 189, 188, 188, 187, 186
+  DB 186, 185, 184, 183, 182, 181, 180, 179, 178, 177, 176, 175, 173, 172, 171, 169
+  DB 168, 166, 165, 163, 162, 160, 159, 157, 155, 154, 152, 150, 148, 147, 145, 143
+  DB 141, 139, 137, 135, 133, 132, 130, 128, 126, 124, 122, 120, 118, 116, 114, 112
+  DB 110, 107, 105, 103, 101,  99,  97,  95,  93,  91,  89,  87,  86,  84,  82,  80
+  DB  78,  76,  74,  72,  71,  69,  67,  65,  64,  62,  60,  59,  57,  56,  54,  53
+  DB  51,  50,  48,  47,  46,  44,  43,  42,  41,  40,  39,  38,  37,  36,  35,  34
+  DB  33,  33,  32,  31,  31,  30,  29,  29,  29,  28,  28,  28,  27,  27,  27,  27
+  DB  27,  27,  27,  27,  27,  28,  28,  28,  29,  29,  29,  30,  31,  31,  32,  33
+  DB  33,  34,  35,  36,  37,  38,  39,  40,  41,  42,  43,  44,  46,  47,  48,  50
+  DB  51,  53,  54,  56,  57,  59,  60,  62,  64,  65,  67,  69,  71,  72,  74,  76
+  DB  78,  80,  82,  84,  86,  87,  89,  91,  93,  95,  97,  99, 101, 103, 105, 107
 
 ; Per-scanline raster bar colors (200 × 2 bytes = 400 bytes)
 ss_scanline_colors: times 200 * 2 DB 0

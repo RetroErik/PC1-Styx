@@ -15,7 +15,7 @@ This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and com
 
 | Aspect | Styx Remastered (CGA) | PC1 Hidden Mode |
 |--------|----------------------|-----------------|
-| Startup screen | 320×200×4 RLE-decoded logo | 320×200 BMP with per-scanline CGA palette flip + raster bars |
+| Startup screen | 320×200×4 RLE-decoded logo | 320×200 BMP with unified per-scanline palette streaming + raster bars |
 | Gameplay | 160×100×16 (tweaked CGA text mode) | 160×200×16 |
 | Colors | 16 (fixed CGA palette) | 16 (programmable 512-color palette) |
 | Pixel format | Character/attribute pairs at B800h | 4bpp, 2 pixels/byte at B000h |
@@ -23,7 +23,7 @@ This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and com
 
 ### Key modifications
 
-- **Startup screen**: Custom 8-bit BMP viewer using per-scanline V6355D palette reprogramming (CGA palette flip) in 320×200×4 mode, providing 3 independent colors per scanline from a 512-color palette. Animated raster bars (red and blue sine-wave gradients) scroll behind the STYX title letters. Falls back to the original RLE title if `STYX.BMP` is not found.
+- **Startup screen**: Custom 8-bit BMP viewer using unified per-scanline V6355D palette streaming in 320×200×4 mode — every scanline gets a full E0–E7 palette write (16 bytes via OUTSB), providing 6 independent image colors plus a bar color per scanline from a 512-color palette. Five animated raster bars (“sine snake” — red, yellow, green, cyan, blue gradient bars, each 8 scanlines tall) follow the same sine wave with phase offsets, creating a rainbow snake that slithers behind the STYX title. The sine table range (27–192) keeps bars below the top 27 scanlines. Based on the palram9b approach (confirmed working on real PC1 hardware). Falls back to the original RLE title if `STYX.BMP` is not found.
 - **Loading experience**: ANSI splash screen with C64-style border color cycling keeps the display active during both analysis and rendering passes. Off-screen rendering to a RAM buffer keeps the splash visible until the startup screen is ready — no visible blank screen during the transition.
 - **Bulk buffered file I/O**: BMP rows are read 10 at a time per DOS call, reducing 400 INT 21h calls to 40 and saving ~1 second of loading time on XT-IDE hardware.
 - **VRAM caching**: After the first render, the startup screen is saved to a DOS-allocated 16K memory segment. After game over, the startup screen is restored instantly from cache without re-reading the BMP file from disk.
@@ -36,26 +36,32 @@ This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and com
 - 80186 immediate shift instructions used (NEC V40 CPU)
 - Key remapping: Space = launch ball, F1 = pause
 
-## CGA Palette Flip (Startup Screen)
+## Palette Streaming (Startup Screen)
 
-The V6355D has two palette banks (PAL_EVEN and PAL_ODD), each with entries E0–E7. CGA mode 4 maps 2-bit pixel values to these entries. By alternating the active bank at each horizontal blanking interval (HBLANK) and writing different RGB values to the inactive bank, each scanline can display 3 independent colors from the 512-color palette — far beyond CGA's normal 4 fixed colors.
+The V6355D has two palette banks (PAL_EVEN and PAL_ODD), each with entries E0–E7. CGA mode 4 maps 2-bit pixel values to these entries. By alternating the active bank at each horizontal blanking interval (HBLANK) and writing new RGB values to the inactive bank, each scanline can display independent colors from the 512-color palette — far beyond CGA's normal 4 fixed colors.
 
-The startup screen renderer uses a 4-zone layout:
+The startup screen renderer uses a **unified per-scanline loop** (based on palram9b, confirmed working on real PC1 hardware). For all 200 visible scanlines, every scanline gets the same treatment:
 
-| Zone | Lines | Action |
-|------|-------|--------|
-| 1a | 0–47 | Flip-first: alternate banks, write E2–E7 to inactive bank (12 bytes via REP OUTSB) |
-| 1b | 48–127 | Idle: palette has converged, both banks hold correct colors |
-| 2 | 128–173 | Raster bars: write entry E0 only (background color), animated red/blue gradients |
-| 3 | 174–199 | Idle: E2–E7 still correct from Zone 1a |
+1. Wait for HBLANK
+2. **Flip** the active palette bank (PAL_ODD ↔ PAL_EVEN)
+3. Open palette at E0 (`0x40` → port DDh)
+4. Stream 16 bytes via OUTSB: E0 (2 bytes, bar/background color) + E1 (2 bytes, unused) + E2–E7 (12 bytes, image colors)
+5. Close palette (`0x80` → port DDh)
 
-Zone 1a stops after 48 lines because the image colors are uniform from line 48 onward — both banks already have the same E2–E7 values, so no further flipping is needed. This saves ~1,200 I/O port writes per frame. The raster bar zone only modifies E0 (shared by both banks), so the STYX title letters (which use E2–E7 colors) remain visible.
+E0 completes within HBLANK (~55 cycles) so the bar color is glitch-free. E1 spills slightly past HBLANK (harmless — it's unused). E2–E7 write to the inactive bank (flip-first), so image colors are always correct by the time that bank becomes active on the next scanline.
+
+The palette stream is a 3,200-byte buffer (200 scanlines × 16 bytes). Before each frame, `ss_update_stream_e0` patches the E0 slots with raster bar colors from a precomputed scanline color table. E2–E7 slots are set once during BMP analysis and don't change frame-to-frame.
+
+Raster bars use a “sine snake” effect: five gradient bars (red, yellow, green, cyan, blue) follow the same 256-entry sine wave with phase offsets of 12 entries each, creating a rainbow snake that slithers across the screen. Bars are drawn back-to-front (blue tail first, red head last) so the head renders on top when segments overlap. Each bar is 8 scanlines tall with a symmetric gradient (dark → bright → dark). The sine table range (27–192) keeps bars below the top 27 scanlines to avoid the title area.
+
+### Known limitation — E0 race condition
+
+The palette flip (step 2 above) exposes the new E0 value *before* the OUTSB chain (step 4) writes it. On scanlines where E0 is black, this race is invisible. On bar scanlines where E0 holds a non-black color, the stale E0 from the previous flip may briefly flash the wrong color, appearing as an occasional screen blink (~2 per minute). This is cosmetically acceptable and inherent to the flip-first palette streaming architecture.
+
+Building with NASM `-O0` (no jump optimization) inflates the code by ~800 bytes, making near jumps push the OUTSB chain past the HBLANK window and causing constant blinking. Always build with default optimization (or use `-w-error=label-redef-late` to suppress label convergence warnings).
 
 Tunable parameters in the source (`STYX.ASM`):
-- `SS_FLIP_LINES` — number of flip-first lines (default 48, must be even)
-- `SS_BAR_START` — first scanline of bar zone (default 128)
-- `SS_BAR_END` — first scanline after bar zone (default 174)
-- `SS_BAR_HEIGHT` — height of each gradient bar (default 14)
+- `SS_BAR_HEIGHT` — height of each sine-snake gradient bar (default 8)
 - `SS_BULK_ROWS` — rows per DOS read call for bulk buffering (default 10)
 
 ## Building
@@ -63,7 +69,7 @@ Tunable parameters in the source (`STYX.ASM`):
 Requires [NASM](https://www.nasm.us/) and Python 3.
 
 ```
-nasm -f bin -o STYX.BIN STYX.ASM
+nasm -f bin -w-error=label-redef-late -o STYX.BIN STYX.ASM
 python make_exe.py STYX.BIN STYX.EXE
 ```
 
