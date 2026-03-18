@@ -1,0 +1,411 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" font-family="'Segoe UI', Arial, sans-serif">
+  <defs>
+    <!-- Background texture gradient -->
+    <radialGradient id="bgGrad" cx="50%" cy="50%" r="70%">
+      <stop offset="0%" stop-color="#1a3a5c"/>
+      <stop offset="100%" stop-color="#0a1a2e"/>
+    </radialGradient>
+    <!-- Gold gradient for borders -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d4a020"/>
+      <stop offset="30%" stop-color="#f0d060"/>
+      <stop offset="50%" stop-color="#ffe880"/>
+      <stop offset="70%" stop-color="#f0d060"/>
+      <stop offset="100%" stop-color="#d4a020"/>
+    </linearGradient>
+    <!-- Gold gradient for title bar -->
+    <linearGradient id="titleGold" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#a07010"/>
+      <stop offset="20%" stop-color="#d4a020"/>
+      <stop offset="50%" stop-color="#ffe880"/>
+      <stop offset="80%" stop-color="#d4a020"/>
+      <stop offset="100%" stop-color="#a07010"/>
+    </linearGradient>
+    <!-- Beam arrow gradient -->
+    <linearGradient id="beamGrad" x1="0%" y1="50%" x2="100%" y2="50%">
+      <stop offset="0%" stop-color="#d4a020"/>
+      <stop offset="100%" stop-color="#ffe880"/>
+    </linearGradient>
+    <!-- Grid pattern for background texture -->
+    <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <rect width="20" height="20" fill="none"/>
+      <line x1="20" y1="0" x2="20" y2="20" stroke="#ffffff08" stroke-width="0.5"/>
+      <line x1="0" y1="20" x2="20" y2="20" stroke="#ffffff08" stroke-width="0.5"/>
+    </pattern>
+    <!-- Scanline bar gradient (dark) -->
+    <linearGradient id="barDark" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#1a1a2a"/>
+      <stop offset="100%" stop-color="#2a2a3a"/>
+    </linearGradient>
+    <!-- Glow for title -->
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Arrow markers -->
+    <marker id="arrowGold" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#d4a020"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="8" markerHeight="6" refX="4" refY="3" orient="auto" fill="#ff4444">
+      <polygon points="0 0, 8 3, 0 6"/>
+    </marker>
+    <!-- Hatched pattern for unused E1 -->
+    <pattern id="unusedHash" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#66666640" stroke-width="2"/>
+    </pattern>
+    <!-- Bar color gradient (warm red-orange) -->
+    <linearGradient id="barColorGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ff6030"/>
+      <stop offset="100%" stop-color="#cc3010"/>
+    </linearGradient>
+  </defs>
+
+  <!-- ==================== BACKGROUND ==================== -->
+  <rect width="1600" height="900" fill="url(#bgGrad)"/>
+  <rect width="1600" height="900" fill="url(#grid)"/>
+
+  <!-- ==================== OUTER GOLD BORDER ==================== -->
+  <rect x="15" y="15" width="1570" height="870" rx="8" ry="8"
+        fill="none" stroke="url(#goldGrad)" stroke-width="4"/>
+  <rect x="22" y="22" width="1556" height="856" rx="6" ry="6"
+        fill="none" stroke="#d4a02060" stroke-width="1"/>
+
+  <!-- Corner ornaments -->
+  <circle cx="15" cy="15" r="6" fill="#d4a020" opacity="0.6"/>
+  <circle cx="1585" cy="15" r="6" fill="#d4a020" opacity="0.6"/>
+  <circle cx="15" cy="885" r="6" fill="#d4a020" opacity="0.6"/>
+  <circle cx="1585" cy="885" r="6" fill="#d4a020" opacity="0.6"/>
+
+  <!-- ==================== TITLE BAR ==================== -->
+  <rect x="190" y="30" width="1220" height="42" rx="4" fill="#0a1a2e" stroke="url(#titleGold)" stroke-width="2"/>
+  <line x1="190" y1="30" x2="1410" y2="30" stroke="url(#titleGold)" stroke-width="2"/>
+  <text x="800" y="58" text-anchor="middle" font-size="22" font-weight="bold"
+        fill="url(#titleGold)" filter="url(#glow)" font-variant="small-caps"
+        letter-spacing="3">PC1-Styx: Unified E0 + E2-E7 with Individual OUTSB</text>
+  <!-- Decorative lines -->
+  <line x1="210" y1="68" x2="1390" y2="68" stroke="#d4a02040" stroke-width="1"/>
+  <text x="800" y="96" text-anchor="middle" font-size="18" fill="#aaaaaa" font-style="italic">Per-scanline palette update sequence during Horizontal Blanking (HBLANK)</text>
+
+  <!-- ================================================================ -->
+  <!-- EVEN SCANLINE PANEL                                              -->
+  <!-- ================================================================ -->
+  <rect x="45" y="115" width="1510" height="238" rx="6" fill="#0d1f35" stroke="url(#goldGrad)" stroke-width="2.5" opacity="0.95"/>
+
+  <!-- HBLANK / VISIBLE AREA labels -->
+  <text x="240" y="142" text-anchor="middle" font-size="15" fill="#cccccc" font-weight="bold" letter-spacing="2">HBLANK</text>
+  <line x1="120" y1="148" x2="368" y2="148" stroke="#ffffff30" stroke-width="1"/>
+  <text x="960" y="142" text-anchor="middle" font-size="15" fill="#cccccc" font-weight="bold" letter-spacing="2">VISIBLE AREA</text>
+  <line x1="385" y1="148" x2="1510" y2="148" stroke="#ffffff30" stroke-width="1"/>
+
+  <!-- EVEN SCANLINE label -->
+  <text x="62" y="192" font-size="18" fill="#ffffff" font-weight="bold">EVEN</text>
+  <text x="62" y="210" font-size="12" fill="#aaaaaa">SCANLINE</text>
+  <text x="62" y="226" font-size="10" fill="#d4a020" font-style="italic">Flip → Pal 1</text>
+
+  <!-- Scanline bar background -->
+  <rect x="120" y="170" width="1410" height="48" rx="5" fill="url(#barDark)" stroke="#444455" stroke-width="1.5"/>
+
+  <!-- HBLANK boundary marker -->
+  <line x1="376" y1="160" x2="376" y2="225" stroke="#ffffff60" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="376" y="156" text-anchor="middle" font-size="9" fill="#ffffff80">~72 cy</text>
+
+  <!-- FLIP box -->
+  <rect x="130" y="178" width="42" height="32" rx="4" fill="#4CAF50" stroke="#2E7D32" stroke-width="1.5"/>
+  <text x="151" y="199" text-anchor="middle" font-size="12" fill="white" font-weight="bold">FLIP</text>
+
+  <!-- Small arrow -->
+  <polygon points="176,194 182,190 182,198" fill="#d4a020"/>
+
+  <!-- OPEN box (0x40) -->
+  <rect x="186" y="178" width="42" height="32" rx="4" fill="#4CAF50" stroke="#388E3C" stroke-width="1.5"/>
+  <text x="207" y="196" text-anchor="middle" font-size="10" fill="white" font-weight="bold">OPEN</text>
+  <text x="207" y="207" text-anchor="middle" font-size="8" fill="#c0ffc0">0x40</text>
+
+  <!-- Small arrow -->
+  <polygon points="232,194 238,190 238,198" fill="#d4a020"/>
+
+  <!-- ===== 16× individual OUTSB block ===== -->
+  <rect x="242" y="173" width="434" height="42" rx="5" fill="none" stroke="#ffe880" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="459" y="162" text-anchor="middle" font-size="11" fill="#ffe880" font-weight="bold">16× Individual OUTSB</text>
+
+  <!-- E0: Bar Color — WITHIN HBLANK -->
+  <rect x="246" y="178" width="42" height="32" rx="3" fill="url(#barColorGrad)" stroke="#ff4020" stroke-width="1.5"/>
+  <text x="267" y="198" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E0</text>
+
+  <!-- E1: Unused — hatched gray -->
+  <rect x="292" y="178" width="42" height="32" rx="3" fill="#333344" stroke="#555566" stroke-width="1"/>
+  <rect x="292" y="178" width="42" height="32" rx="3" fill="url(#unusedHash)"/>
+  <text x="313" y="198" text-anchor="middle" font-size="11" fill="#999999" font-weight="bold">E1</text>
+
+  <!-- Highlight: E0+E1 complete within HBLANK -->
+  <rect x="243" y="159" width="94" height="126" rx="5" fill="none" stroke="#50ff80" stroke-width="2.5" stroke-dasharray="4,2" opacity="0.9"/>
+  <text x="290" y="152" text-anchor="middle" font-size="11" fill="#50ff80" font-weight="bold" letter-spacing="1">WITHIN HBLANK</text>
+
+  <!-- E2: Upcoming (inactive Pal 0, pre-loaded with line N+2) -->
+  <rect x="338" y="178" width="42" height="32" rx="3" fill="#e6a800" stroke="#b38600" stroke-width="1"/>
+  <text x="359" y="198" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E2</text>
+
+  <!-- E3: Current (active Pal 1, passthrough) -->
+  <rect x="384" y="178" width="42" height="32" rx="3" fill="#e05050" stroke="#b03030" stroke-width="1"/>
+  <text x="405" y="198" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E3</text>
+
+  <!-- E4: Upcoming -->
+  <rect x="430" y="178" width="42" height="32" rx="3" fill="#3080d0" stroke="#2060a0" stroke-width="1"/>
+  <text x="451" y="198" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E4</text>
+
+  <!-- E5: Current -->
+  <rect x="476" y="178" width="42" height="32" rx="3" fill="#9040b0" stroke="#7030a0" stroke-width="1"/>
+  <text x="497" y="198" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E5</text>
+
+  <!-- E6: Upcoming -->
+  <rect x="522" y="178" width="42" height="32" rx="3" fill="#20a060" stroke="#108040" stroke-width="1"/>
+  <text x="543" y="198" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E6</text>
+
+  <!-- E7: Current -->
+  <rect x="568" y="178" width="42" height="32" rx="3" fill="#d06820" stroke="#a05010" stroke-width="1"/>
+  <text x="589" y="198" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E7</text>
+
+  <!-- Separator between E1 and E2 -->
+  <line x1="336" y1="175" x2="336" y2="217" stroke="#ffe88060" stroke-width="1" stroke-dasharray="2,2"/>
+
+  <!-- Hybrid Write highlight over E2-E7 -->
+  <rect x="335" y="148" width="282" height="145" rx="5" fill="none" stroke="#40c0ff" stroke-width="2" stroke-dasharray="4,2" opacity="0.8"/>
+  <text x="476" y="140" text-anchor="middle" font-size="11" fill="#40c0ff" font-weight="bold" letter-spacing="1">HYBRID WRITE ✔</text>
+  <text x="476" y="310" text-anchor="middle" font-size="9" fill="#40c0ff" font-style="italic">Extends into visible area — safe for inactive palette entries</text>
+
+  <!-- Small arrow after OUTSB -->
+  <polygon points="682,194 688,190 688,198" fill="#d4a020"/>
+
+  <!-- CLOSE box -->
+  <rect x="692" y="178" width="50" height="32" rx="4" fill="#d4a020" stroke="#b38600" stroke-width="1.5"/>
+  <text x="717" y="199" text-anchor="middle" font-size="12" fill="white" font-weight="bold">CLOSE</text>
+
+  <!-- Beam arrow in visible area -->
+  <line x1="820" y1="194" x2="1500" y2="194" stroke="url(#beamGrad)" stroke-width="3" marker-end="url(#arrowGold)"/>
+  <line x1="1470" y1="186" x2="1510" y2="186" stroke="#d4a02060" stroke-width="1"/>
+  <line x1="1475" y1="190" x2="1515" y2="190" stroke="#d4a02040" stroke-width="1"/>
+  <line x1="1470" y1="198" x2="1510" y2="198" stroke="#d4a02060" stroke-width="1"/>
+  <line x1="1475" y1="202" x2="1515" y2="202" stroke="#d4a02040" stroke-width="1"/>
+
+  <!-- ===== Register labels beneath blocks ===== -->
+  <text x="267" y="229" text-anchor="middle" font-size="12" fill="#ff6030" font-weight="bold">E0</text>
+  <text x="313" y="229" text-anchor="middle" font-size="12" fill="#666666" font-weight="bold">E1</text>
+  <text x="359" y="229" text-anchor="middle" font-size="12" fill="#e6a800" font-weight="bold">E2</text>
+  <text x="405" y="229" text-anchor="middle" font-size="12" fill="#e05050" font-weight="bold">E3</text>
+  <text x="451" y="229" text-anchor="middle" font-size="12" fill="#3080d0" font-weight="bold">E4</text>
+  <text x="497" y="229" text-anchor="middle" font-size="12" fill="#9040b0" font-weight="bold">E5</text>
+  <text x="543" y="229" text-anchor="middle" font-size="12" fill="#20a060" font-weight="bold">E6</text>
+  <text x="589" y="229" text-anchor="middle" font-size="12" fill="#d06820" font-weight="bold">E7</text>
+
+  <!-- Down arrows and annotations -->
+  <line x1="267" y1="235" x2="267" y2="260" stroke="#ff6030" stroke-width="2" marker-end="url(#arrowRed)"/>
+  <line x1="313" y1="235" x2="313" y2="260" stroke="#666666" stroke-width="1.5" stroke-dasharray="3,2"/>
+  <line x1="359" y1="235" x2="359" y2="260" stroke="#ff4444" stroke-width="2" marker-end="url(#arrowRed)"/>
+  <line x1="405" y1="235" x2="405" y2="260" stroke="#e6a800" stroke-width="2" marker-end="url(#arrowRed)"/>
+  <line x1="451" y1="235" x2="451" y2="260" stroke="#ff4444" stroke-width="2" marker-end="url(#arrowRed)"/>
+  <line x1="497" y1="235" x2="497" y2="260" stroke="#e6a800" stroke-width="2" marker-end="url(#arrowRed)"/>
+  <line x1="543" y1="235" x2="543" y2="260" stroke="#ff4444" stroke-width="2" marker-end="url(#arrowRed)"/>
+  <line x1="589" y1="235" x2="589" y2="260" stroke="#e6a800" stroke-width="2" marker-end="url(#arrowRed)"/>
+
+  <!-- Per-register annotations -->
+  <text x="267" y="278" text-anchor="middle" font-size="10" fill="#ff6030" font-weight="bold">Bar Color</text>
+  <text x="313" y="278" text-anchor="middle" font-size="10" fill="#666666" font-style="italic">Unused</text>
+  <text x="359" y="278" text-anchor="middle" font-size="10" fill="#50ff80" font-style="italic">Upcoming</text>
+  <text x="405" y="278" text-anchor="middle" font-size="10" fill="#e6a800" font-style="italic">Current</text>
+  <text x="451" y="278" text-anchor="middle" font-size="10" fill="#50ff80" font-style="italic">Upcoming</text>
+  <text x="497" y="278" text-anchor="middle" font-size="10" fill="#e6a800" font-style="italic">Current</text>
+  <text x="543" y="278" text-anchor="middle" font-size="10" fill="#50ff80" font-style="italic">Upcoming</text>
+  <text x="589" y="278" text-anchor="middle" font-size="10" fill="#e6a800" font-style="italic">Current</text>
+
+  <!-- Legend row (right side) -->
+  <rect x="700" y="253" width="12" height="12" rx="2" fill="url(#barColorGrad)" opacity="0.9"/>
+  <text x="718" y="264" font-size="12" fill="#ff6030" font-weight="bold">E0: Raster bar color</text>
+  <text x="868" y="264" font-size="11" fill="#aaaaaa" font-style="italic">— shared by both palettes, completes within HBLANK (~45 cy)</text>
+
+  <rect x="700" y="273" width="12" height="12" rx="2" fill="#333344"/>
+  <rect x="700" y="273" width="12" height="12" rx="2" fill="url(#unusedHash)"/>
+  <text x="718" y="284" font-size="12" fill="#666666" font-weight="bold">E1: Unused in CGA mode 4</text>
+  <text x="905" y="284" font-size="11" fill="#aaaaaa" font-style="italic">— zeros, also completes within HBLANK (~63 cy)</text>
+
+  <rect x="700" y="293" width="12" height="12" rx="2" fill="#e6a800" opacity="0.8"/>
+  <text x="718" y="304" font-size="12" fill="#e6a800" font-weight="bold">Current: Active palette colors</text>
+  <text x="930" y="304" font-size="11" fill="#aaaaaa" font-style="italic">— passthrough: same value rewritten, no flicker</text>
+
+  <rect x="700" y="313" width="12" height="12" rx="2" fill="#50ff80" opacity="0.8"/>
+  <text x="718" y="324" font-size="12" fill="#50ff80" font-weight="bold">Upcoming: Inactive palette colors</text>
+  <text x="950" y="324" font-size="11" fill="#aaaaaa" font-style="italic">— pre-loaded with line N+2 colors, safe in any column</text>
+
+  <!-- ================================================================ -->
+  <!-- ODD SCANLINE PANEL                                               -->
+  <!-- ================================================================ -->
+  <rect x="45" y="375" width="1510" height="175" rx="6" fill="#0d1f35" stroke="url(#goldGrad)" stroke-width="2.5" opacity="0.95"/>
+
+  <!-- HBLANK / VISIBLE AREA labels -->
+  <text x="240" y="402" text-anchor="middle" font-size="15" fill="#cccccc" font-weight="bold" letter-spacing="2">HBLANK</text>
+  <line x1="120" y1="408" x2="368" y2="408" stroke="#ffffff30" stroke-width="1"/>
+  <text x="960" y="402" text-anchor="middle" font-size="15" fill="#cccccc" font-weight="bold" letter-spacing="2">VISIBLE AREA</text>
+  <line x1="385" y1="408" x2="1510" y2="408" stroke="#ffffff30" stroke-width="1"/>
+
+  <!-- ODD SCANLINE label -->
+  <text x="62" y="452" font-size="18" fill="#ffffff" font-weight="bold">ODD</text>
+  <text x="62" y="470" font-size="12" fill="#aaaaaa">SCANLINE</text>
+  <text x="62" y="486" font-size="10" fill="#d4a020" font-style="italic">Flip → Pal 0</text>
+
+  <!-- Scanline bar background -->
+  <rect x="120" y="430" width="1410" height="48" rx="5" fill="url(#barDark)" stroke="#444455" stroke-width="1.5"/>
+
+  <!-- HBLANK boundary marker -->
+  <line x1="376" y1="420" x2="376" y2="485" stroke="#ffffff60" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="376" y="416" text-anchor="middle" font-size="9" fill="#ffffff80">~72 cy</text>
+
+  <!-- FLIP box (pink for odd) -->
+  <rect x="130" y="438" width="42" height="32" rx="4" fill="#e91e63" stroke="#c2185b" stroke-width="1.5"/>
+  <text x="151" y="459" text-anchor="middle" font-size="12" fill="white" font-weight="bold">FLIP</text>
+
+  <!-- Small arrow -->
+  <polygon points="176,454 182,450 182,458" fill="#d4a020"/>
+
+  <!-- OPEN box (0x40) -->
+  <rect x="186" y="438" width="42" height="32" rx="4" fill="#4CAF50" stroke="#388E3C" stroke-width="1.5"/>
+  <text x="207" y="456" text-anchor="middle" font-size="10" fill="white" font-weight="bold">OPEN</text>
+  <text x="207" y="467" text-anchor="middle" font-size="8" fill="#c0ffc0">0x40</text>
+
+  <!-- Small arrow -->
+  <polygon points="232,454 238,450 238,458" fill="#d4a020"/>
+
+  <!-- ===== 16× individual OUTSB block ===== -->
+  <rect x="242" y="433" width="434" height="42" rx="5" fill="none" stroke="#ffe880" stroke-width="2" stroke-dasharray="6,3"/>
+  <text x="459" y="422" text-anchor="middle" font-size="11" fill="#ffe880" font-weight="bold">16× Individual OUTSB</text>
+
+  <!-- E0: Bar Color -->
+  <rect x="246" y="438" width="42" height="32" rx="3" fill="url(#barColorGrad)" stroke="#ff4020" stroke-width="1.5"/>
+  <text x="267" y="458" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E0</text>
+
+  <!-- E1: Unused -->
+  <rect x="292" y="438" width="42" height="32" rx="3" fill="#333344" stroke="#555566" stroke-width="1"/>
+  <rect x="292" y="438" width="42" height="32" rx="3" fill="url(#unusedHash)"/>
+  <text x="313" y="458" text-anchor="middle" font-size="11" fill="#999999" font-weight="bold">E1</text>
+
+  <!-- Highlight: E0+E1 within HBLANK -->
+  <rect x="243" y="419" width="94" height="76" rx="5" fill="none" stroke="#50ff80" stroke-width="2.5" stroke-dasharray="4,2" opacity="0.9"/>
+  <text x="290" y="412" text-anchor="middle" font-size="11" fill="#50ff80" font-weight="bold" letter-spacing="1">WITHIN HBLANK</text>
+
+  <!-- Separator -->
+  <line x1="336" y1="435" x2="336" y2="477" stroke="#ffe88060" stroke-width="1" stroke-dasharray="2,2"/>
+
+  <!-- Hybrid Write highlight over E2-E7 -->
+  <rect x="335" y="408" width="282" height="87" rx="5" fill="none" stroke="#40c0ff" stroke-width="2" stroke-dasharray="4,2" opacity="0.8"/>
+  <text x="476" y="400" text-anchor="middle" font-size="11" fill="#40c0ff" font-weight="bold" letter-spacing="1">HYBRID WRITE ✔</text>
+
+  <!-- E2: Current (active Pal 0, passthrough) — SWAPPED from even -->
+  <rect x="338" y="438" width="42" height="32" rx="3" fill="#e6a800" stroke="#b38600" stroke-width="1"/>
+  <text x="359" y="458" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E2</text>
+
+  <!-- E3: Upcoming (inactive Pal 1, pre-loaded) -->
+  <rect x="384" y="438" width="42" height="32" rx="3" fill="#e05050" stroke="#b03030" stroke-width="1"/>
+  <text x="405" y="458" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E3</text>
+
+  <!-- E4: Current -->
+  <rect x="430" y="438" width="42" height="32" rx="3" fill="#3080d0" stroke="#2060a0" stroke-width="1"/>
+  <text x="451" y="458" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E4</text>
+
+  <!-- E5: Upcoming -->
+  <rect x="476" y="438" width="42" height="32" rx="3" fill="#9040b0" stroke="#7030a0" stroke-width="1"/>
+  <text x="497" y="458" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E5</text>
+
+  <!-- E6: Current -->
+  <rect x="522" y="438" width="42" height="32" rx="3" fill="#20a060" stroke="#108040" stroke-width="1"/>
+  <text x="543" y="458" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E6</text>
+
+  <!-- E7: Upcoming -->
+  <rect x="568" y="438" width="42" height="32" rx="3" fill="#d06820" stroke="#a05010" stroke-width="1"/>
+  <text x="589" y="458" text-anchor="middle" font-size="11" fill="white" font-weight="bold">E7</text>
+
+  <!-- Small arrow -->
+  <polygon points="682,454 688,450 688,458" fill="#d4a020"/>
+
+  <!-- CLOSE box -->
+  <rect x="692" y="438" width="50" height="32" rx="4" fill="#d4a020" stroke="#b38600" stroke-width="1.5"/>
+  <text x="717" y="459" text-anchor="middle" font-size="12" fill="white" font-weight="bold">CLOSE</text>
+
+  <!-- Beam arrow in visible area -->
+  <line x1="820" y1="454" x2="1500" y2="454" stroke="url(#beamGrad)" stroke-width="3" marker-end="url(#arrowGold)"/>
+  <line x1="1470" y1="446" x2="1510" y2="446" stroke="#d4a02060" stroke-width="1"/>
+  <line x1="1475" y1="450" x2="1515" y2="450" stroke="#d4a02040" stroke-width="1"/>
+  <line x1="1470" y1="458" x2="1510" y2="458" stroke="#d4a02060" stroke-width="1"/>
+  <line x1="1475" y1="462" x2="1515" y2="462" stroke="#d4a02040" stroke-width="1"/>
+
+  <!-- ===== Register labels ===== -->
+  <text x="267" y="489" text-anchor="middle" font-size="12" fill="#ff6030" font-weight="bold">E0</text>
+  <text x="313" y="489" text-anchor="middle" font-size="12" fill="#666666" font-weight="bold">E1</text>
+  <text x="359" y="489" text-anchor="middle" font-size="12" fill="#e6a800" font-weight="bold">E2</text>
+  <text x="405" y="489" text-anchor="middle" font-size="12" fill="#e05050" font-weight="bold">E3</text>
+  <text x="451" y="489" text-anchor="middle" font-size="12" fill="#3080d0" font-weight="bold">E4</text>
+  <text x="497" y="489" text-anchor="middle" font-size="12" fill="#9040b0" font-weight="bold">E5</text>
+  <text x="543" y="489" text-anchor="middle" font-size="12" fill="#20a060" font-weight="bold">E6</text>
+  <text x="589" y="489" text-anchor="middle" font-size="12" fill="#d06820" font-weight="bold">E7</text>
+
+  <!-- Compact annotation: note the swap -->
+  <text x="750" y="510" font-size="11" fill="#888888">Same code path, swapped data: <tspan fill="#e6a800">Even registers (E2/E4/E6) = <tspan font-weight="bold">Current</tspan></tspan> · <tspan fill="#50ff80">Odd registers (E3/E5/E7) = <tspan font-weight="bold">Upcoming</tspan></tspan></text>
+
+  <!-- ================================================================ -->
+  <!-- TECHNIQUES PANEL                                                 -->
+  <!-- ================================================================ -->
+  <rect x="45" y="575" width="1510" height="125" rx="6" fill="#0d1f35" stroke="url(#goldGrad)" stroke-width="2.5" opacity="0.95"/>
+
+  <rect x="60" y="582" width="260" height="22" rx="3" fill="#d4a02015" stroke="#d4a02050" stroke-width="1"/>
+  <text x="190" y="597" text-anchor="middle" font-size="13" fill="#d4a020" font-weight="bold" letter-spacing="1">Techniques Explained</text>
+
+  <!-- CGA Palette Flipping -->
+  <circle cx="80" cy="618" r="5" fill="#4CAF50"/>
+  <text x="95" y="622" font-size="12" fill="#4CAF50" font-weight="bold">CGA Palette Flipping:</text>
+  <text x="225" y="622" font-size="11" fill="#aaaaaa">Two palette banks (Palette 0 / Palette 1). Flip the active bank each scanline, stream new colors to the inactive one → 3 independent colors per line.</text>
+
+  <!-- Raster Bars -->
+  <circle cx="80" cy="640" r="5" fill="#ff6030"/>
+  <text x="95" y="644" font-size="12" fill="#ff6030" font-weight="bold">Raster Bars:</text>
+  <text x="225" y="644" font-size="11" fill="#aaaaaa">E0 sets the background color. Rewrite it with a new value on every scanline → animated horizontal color gradients.</text>
+
+  <!-- Register layout -->
+  <circle cx="80" cy="662" r="5" fill="#e6a800"/>
+  <text x="95" y="666" font-size="12" fill="#e6a800" font-weight="bold">Registers E0–E7:</text>
+  <text x="225" y="666" font-size="11" fill="#aaaaaa">E0–E1 = background (color 0). E2–E7 = CGA palette colors 1–3. Each color = 2 bytes: even register = Red, odd register = Green + Blue.</text>
+
+  <!-- Hybrid write -->
+  <circle cx="80" cy="684" r="5" fill="#40c0ff"/>
+  <text x="95" y="688" font-size="12" fill="#40c0ff" font-weight="bold">Hybrid Write:</text>
+  <text x="225" y="688" font-size="11" fill="#aaaaaa">E2–E7 extend past HBLANK into visible area. Successfully tested — inactive entries can be written anytime without flicker.</text>
+
+  <!-- ================================================================ -->
+  <!-- IMPROVEMENT PANEL: PALRAM9B vs PC1-STYX                          -->
+  <!-- ================================================================ -->
+  <rect x="45" y="730" width="1510" height="110" rx="6" fill="#0d1f35" stroke="url(#goldGrad)" stroke-width="2.5" opacity="0.95"/>
+
+  <rect x="60" y="737" width="480" height="22" rx="3" fill="#d4a02015" stroke="#d4a02050" stroke-width="1"/>
+  <text x="300" y="752" text-anchor="middle" font-size="13" fill="#d4a020" font-weight="bold" letter-spacing="1">Improvement: REP OUTSB → Individual OUTSB</text>
+
+  <!-- PALRAM9B row -->
+  <circle cx="80" cy="775" r="5" fill="#888888"/>
+  <text x="95" y="779" font-size="12" fill="#999999" font-weight="bold">PALRAM9B:</text>
+  <text x="175" y="779" font-size="11" fill="#aaaaaa">REP OUTSB (CX=16) — CPU stays in microcode loop for all 16 bytes. E0 committed at ~55 cy.</text>
+
+  <!-- PC1-Styx row -->
+  <circle cx="80" cy="797" r="5" fill="#50ff80"/>
+  <text x="95" y="801" font-size="12" fill="#50ff80" font-weight="bold">PC1-STYX:</text>
+  <text x="175" y="801" font-size="11" fill="#aaaaaa">16× individual OUTSB — E0 committed at ~45 cy, E1 at ~63 cy. Both within HBLANK. Cleaner bars.</text>
+
+  <!-- Key insight -->
+  <circle cx="80" cy="819" r="5" fill="#d4a020"/>
+  <text x="95" y="823" font-size="12" fill="#d4a020" font-weight="bold">WHY:</text>
+  <text x="175" y="823" font-size="11" fill="#aaaaaa">Individual OUTSB finishes E0 earlier — no PUSH/MOV CX/POP overhead. Fewer raster bar artifacts on real hardware.</text>
+
+  <!-- ==================== FOOTER ==================== -->
+  <text x="800" y="880" text-anchor="middle" font-size="11" fill="#d8d8d8" font-weight="600">
+    Olivetti Prodest PC1 · NEC V40 @ 8 MHz · CGA Mode 4 · Unified E0+E2-E7 Individual OUTSB — confirmed on real hardware (March 2026)
+  </text>
+  <text x="1570" y="880" text-anchor="end" font-size="10" fill="#e8cb70" font-style="italic">Illustration by Retro Erik</text>
+
+</svg>
