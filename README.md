@@ -5,11 +5,32 @@ A port of **Styx Remastered** to the Olivetti Prodest PC1's hidden 160×200×16-
 ![Olivetti Prodest PC1](https://img.shields.io/badge/Platform-Olivetti%20Prodest%20PC1-blue)
 ![License](https://img.shields.io/badge/License-GPLv2-green)
 
+### ▶️ [Watch the gameplay video on YouTube](https://youtu.be/Z3v6KYRCbh4)
+
+### 📥 [Download the complete game (pc1-styx.zip)](pc1-styx.zip)
+
 ## About
 
 Styx is a territory-claiming arcade game where the player walks along borders and draws trails to claim territory while avoiding enemies. The original game was developed by Windmill Software in 1983 and used a little-known "tweaked" CGA text mode hack to display all 16 colors at 160×100 resolution — a paltry resolution, but quite effective on CGA monitors and ideal for games of this sort. **Andrew Jenner** later remastered it (1998–2004) as *Styx Remastered*, directly converting the original 160×100×16 graphics rather than redrawing them, and retaining the same resolution and 16-color look while making it run on all PCs with CGA or better.
 
 This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and compatible Olivetti M21/M24/AT&T 6300 systems), taking advantage of the Yamaha V6355D video chip's hidden 160×200×16-color graphics mode — providing 16 colors from a programmable 512-color palette instead of the original CGA's fixed 4-color palette.
+
+## Architecture
+
+![PC1-Styx Unified OUTSB Architecture](pc1-styx-unified-outsb-16x9.svg)
+
+## Level Backgrounds
+
+The first three levels use custom background images (320×200 8-bit BMPs):
+
+![Level 1 background](Styx1.bmp)
+<br><em>Styx1.bmp — Level 1 background</em>
+
+![Level 2 background](Styx2.bmp)
+<br><em>Styx2.bmp — Level 2 background</em>
+
+![Level 3 background](Styx3.bmp)
+<br><em>Styx3.bmp — Level 3 background</em>
 
 ## What Changed
 
@@ -75,7 +96,7 @@ python make_exe.py STYX.BIN STYX.EXE
 
 ## Running
 
-Copy `STYX.EXE` and `STYX.BMP` to your Olivetti Prodest PC1 (or compatible system) and run from DOS.
+Download [pc1-styx.zip](pc1-styx.zip), extract all files to your Olivetti Prodest PC1 (or compatible system), and run `STYX.EXE` from DOS.
 
 Command-line options (inherited from Styx Remastered):
 - `/Q` — Quiet mode (no sound)
