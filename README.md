@@ -113,3 +113,10 @@ The original A86 source files and conversion script have been moved to `Old A86 
 This program is free software under the [GNU General Public License v2](COPYING).
 
 Styx Remastered is Copyright © Andrew Jenner 1998–2004. The original Styx source code and binaries are Copyright © Windmill Software.
+
+---
+
+## YouTube
+
+For more retro computing content, visit my YouTube channel **Retro Hardware and Software**:
+[https://www.youtube.com/@RetroErik](https://www.youtube.com/@RetroErik)
