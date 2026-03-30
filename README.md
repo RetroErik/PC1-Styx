@@ -2,7 +2,10 @@
 
 A port of **Styx Remastered** to the Olivetti Prodest PC1's hidden 160×200×16-color graphics mode.
 
+By **Retro Erik** — [YouTube: Retro Hardware and Software](https://www.youtube.com/@RetroErik)
+
 ![Olivetti Prodest PC1](https://img.shields.io/badge/Platform-Olivetti%20Prodest%20PC1-blue)
+![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-green)
 ![License](https://img.shields.io/badge/License-GPLv2-green)
 
 ### ▶️ [Watch the gameplay video on YouTube](https://youtu.be/Z3v6KYRCbh4)
@@ -17,20 +20,29 @@ This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and com
 
 ## Architecture
 
-![PC1-Styx Unified OUTSB Architecture](pc1-styx-unified-outsb-16x9.svg)
+<p>
+<em>PC1-Styx unified OUTSB startup architecture</em><br>
+<img src="pc1-styx-unified-outsb-16x9.svg" width="60%" alt="PC1-Styx Unified OUTSB Architecture">
+</p>
 
 ## Level Backgrounds
 
 The first three levels use custom background images (320×200 8-bit BMPs):
 
-<img src="Styx1.bmp" width="320" height="200" alt="Level 1 background">
-<br><em>Styx1.bmp — Level 1 background</em>
+<p>
+<em>Styx1.bmp — Level 1 background</em><br>
+<img src="Styx1.bmp" width="60%" alt="Level 1 background">
+</p>
 
-<img src="Styx2.bmp" width="320" height="200" alt="Level 2 background">
-<br><em>Styx2.bmp — Level 2 background</em>
+<p>
+<em>Styx2.bmp — Level 2 background</em><br>
+<img src="Styx2.bmp" width="60%" alt="Level 2 background">
+</p>
 
-<img src="Styx3.bmp" width="320" height="200" alt="Level 3 background">
-<br><em>Styx3.bmp — Level 3 background</em>
+<p>
+<em>Styx3.bmp — Level 3 background</em><br>
+<img src="Styx3.bmp" width="60%" alt="Level 3 background">
+</p>
 
 ## What Changed
 
