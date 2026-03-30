@@ -29,20 +29,14 @@ This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and com
 
 The first three levels use custom background images (320×200 8-bit BMPs):
 
-<p>
-<em>Styx1.bmp — Level 1 background</em><br>
-<img src="Styx1.bmp" width="60%" alt="Level 1 background">
-</p>
+<img src="Styx1.bmp" width="320" height="200" alt="Level 1 background">
+<br><em>Styx1.bmp — Level 1 background</em>
 
-<p>
-<em>Styx2.bmp — Level 2 background</em><br>
-<img src="Styx2.bmp" width="60%" alt="Level 2 background">
-</p>
+<img src="Styx2.bmp" width="320" height="200" alt="Level 2 background">
+<br><em>Styx2.bmp — Level 2 background</em>
 
-<p>
-<em>Styx3.bmp — Level 3 background</em><br>
-<img src="Styx3.bmp" width="60%" alt="Level 3 background">
-</p>
+<img src="Styx3.bmp" width="320" height="200" alt="Level 3 background">
+<br><em>Styx3.bmp — Level 3 background</em>
 
 ## What Changed
 
