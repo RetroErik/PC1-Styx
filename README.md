@@ -5,7 +5,6 @@ A port of **Styx Remastered** to the Olivetti Prodest PC1's hidden 160×200×16-
 By **Retro Erik** — [YouTube: Retro Hardware and Software](https://www.youtube.com/@RetroErik)
 
 ![Olivetti Prodest PC1](https://img.shields.io/badge/Platform-Olivetti%20Prodest%20PC1-blue)
-![License](https://img.shields.io/badge/License-CC%20BY--NC%204.0-green)
 ![License](https://img.shields.io/badge/License-GPLv2-green)
 
 ### ▶️ [Watch the gameplay video on YouTube](https://youtu.be/Z3v6KYRCbh4)
