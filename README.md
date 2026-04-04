@@ -15,7 +15,7 @@ By **Retro Erik** — [YouTube: Retro Hardware and Software](https://www.youtube
 
 Styx is a territory-claiming arcade game where the player walks along borders and draws trails to claim territory while avoiding enemies. The original game was developed by Windmill Software in 1983 and used a little-known "tweaked" CGA text mode hack to display all 16 colors at 160×100 resolution — a paltry resolution, but quite effective on CGA monitors and ideal for games of this sort. **Andrew Jenner** later remastered it (1998–2004) as *Styx Remastered*, directly converting the original 160×100×16 graphics rather than redrawing them, and retaining the same resolution and 16-color look while making it run on all PCs with CGA or better.
 
-This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and compatible Olivetti M21/M24/AT&T 6300 systems), taking advantage of the Yamaha V6355D video chip's hidden 160×200×16-color graphics mode — providing 16 colors from a programmable 512-color palette instead of the original CGA's fixed 4-color palette.
+This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and probably other machines with the Yamaha V6355D video chip, such as the Zenith Z-180 and PCs with the ACV-1030 ISA card), taking advantage of the Yamaha V6355D video chip's hidden 160×200×16-color graphics mode — providing 16 colors from a programmable 512-color palette instead of the original CGA's fixed 4-color palette.
 
 ## Architecture
 
