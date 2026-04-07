@@ -62,6 +62,10 @@ The first three levels use custom background images (320×200 8-bit BMPs):
 - 80186 immediate shift instructions used (NEC V40 CPU)
 - Key remapping: Space = launch ball, F1 = pause
 
+## Joystick Support
+
+An ordinary **Atari-style joystick** can be plugged directly into the PC1's DE-9 mouse/joystick port to play the game — no drivers, no configuration. The PC1 hardware translates joystick directions into arrow key scan codes and the fire button into Space, which matches the game's controls perfectly. Just plug in and play.
+
 ## Palette Streaming (Startup Screen)
 
 The V6355D has two palette banks (PAL_EVEN and PAL_ODD), each with entries E0–E7. CGA mode 4 maps 2-bit pixel values to these entries. By alternating the active bank at each horizontal blanking interval (HBLANK) and writing new RGB values to the inactive bank, each scanline can display independent colors from the 512-color palette — far beyond CGA's normal 4 fixed colors.
