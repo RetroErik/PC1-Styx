@@ -21,7 +21,7 @@ This port adapts Styx Remastered to run on the **Olivetti Prodest PC1** (and pro
 
 <p>
 <em>PC1-Styx unified OUTSB startup architecture</em><br>
-<img src="pc1-styx-unified-outsb-16x9.svg" width="60%" alt="PC1-Styx Unified OUTSB Architecture">
+<img src="pc1-styx-unified-outsb-16x9.svg" width="100%" alt="PC1-Styx Unified OUTSB Architecture">
 </p>
 
 ## Level Backgrounds
