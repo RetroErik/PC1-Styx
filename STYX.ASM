@@ -1129,6 +1129,10 @@ o5c3:         ;Redraw screen (PC1 hidden mode — with BMP background reveal)
   ; Territory colors: 1 (blue round), 2 (green round), 4 (red round)
   ; Colors 0,7,8,12,15 are game elements and never revealed.
   ;
+  ; Range check uses SUB+CMP instead of two separate CMP/branch pairs
+  ; to reduce instructions in this 16,000-iteration/frame loop.
+  ; (Inspired by Jim Leonard's optimization suggestions.)
+  ;
   ; DS = data segment, ES = B000h (VRAM)
 
   ; === Even bank: shadow → B000:0000, substitute from bmp_background ===
@@ -1141,10 +1145,9 @@ o5c3:         ;Redraw screen (PC1 hidden mode — with BMP background reveal)
   ; --- Check high nibble: is it territory (color 1-6)? ---
   MOV AH,AL
   AND AH,0xF0
-  CMP AH,0x10            ;high nib >= 1?
-  JB .keep_hi_e
-  CMP AH,0x60            ;high nib <= 6?
-  JA .keep_hi_e
+  SUB AH,0x10            ;shift range: colors 1-6 → 0x00-0x50
+  CMP AH,0x51            ;single unsigned compare covers full range
+  JAE .keep_hi_e
   ; Reveal: replace high nibble with BMP pixel
   MOV AH,byte [BX]
   AND AH,0xF0
@@ -1176,10 +1179,9 @@ o5c3:         ;Redraw screen (PC1 hidden mode — with BMP background reveal)
   LODSB
   MOV AH,AL
   AND AH,0xF0
-  CMP AH,0x10
-  JB .keep_hi_o
-  CMP AH,0x60
-  JA .keep_hi_o
+  SUB AH,0x10            ;shift range: colors 1-6 → 0x00-0x50
+  CMP AH,0x51            ;single unsigned compare covers full range
+  JAE .keep_hi_o
   MOV AH,byte [BX]
   AND AH,0xF0
   AND AL,0x0F

@@ -59,6 +59,8 @@ The first three levels use custom background images (320×200 8-bit BMPs):
 - CGA palette programming replaced with V6355D palette via ports DDh/DEh
 - CGA snow wait elimination (V6355D has no snow)
 - Screen redraw optimized with REP MOVSW block transfers
+- Territory color range check optimized with SUB+CMP single-branch pattern
+  instead of dual CMP/branch pairs (16,000 iterations/frame; Jim Leonard)
 - 80186 immediate shift instructions used (NEC V40 CPU)
 - Key remapping: Space = launch ball, F1 = pause
 
